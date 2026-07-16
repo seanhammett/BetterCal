@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BetterCal</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="cal-panel" class="flyout" hidden>
+    <div class="panel-section">
+      <div class="panel-title">Calendars</div>
+      <div id="calendar-list" class="calendar-list"></div>
+    </div>
+  </div>
+
+  <div id="panel" class="flyout" hidden>
+    <div class="panel-section">
+      <div class="panel-title">Week starts on</div>
+      <select id="week-start">
+        <option value="0">Sunday</option>
+        <option value="1">Monday</option>
+      </select>
+    </div>
+    <div class="panel-section">
+      <div class="panel-title">Temperature</div>
+      <select id="temp-unit">
+        <option value="auto">Auto (locale)</option>
+        <option value="c">Celsius</option>
+        <option value="f">Fahrenheit</option>
+      </select>
+    </div>
+    <div class="panel-section">
+      <button id="btn-signout" class="btn subtle">Sign out</button>
+    </div>
+  </div>
+
+  <div id="body-row" hidden>
+    <aside id="sidebar">
+      <div class="side-head">
+        <span class="side-brand">BetterCal</span>
+        <button id="btn-sidebar" title="Collapse sidebar">◂</button>
+      </div>
+      <div class="side-body">
+        <div class="side-section side-actions">
+          <button id="btn-today" class="btn small" title="Jump to today">Today</button>
+          <label class="btn small date-jump" title="Jump to a date">
+            <span>Jump…</span>
+            <input id="date-jump" type="date" />
+          </label>
+          <button id="btn-calendars" class="btn small" title="Show/hide calendars">Cals</button>
+          <button id="btn-settings" class="btn small" title="Settings">⚙</button>
+        </div>
+        <div class="side-section side-clock">
+          <div class="clock-row">
+            <div class="clock-main">
+              <div id="clock-time">--:--</div>
+              <div id="clock-date"></div>
+            </div>
+          </div>
+          <div id="tz-list"></div>
+          <select id="tz-select" hidden></select>
+          <button id="btn-tz-add" class="link-btn">+ time zone</button>
+        </div>
+        <div class="side-section side-weather" title="Click to refresh">
+          <div id="weather-main">Weather…</div>
+          <div id="weather-sun" hidden>
+            <span id="sunrise"></span>
+            <span id="sunset"></span>
+          </div>
+        </div>
+        <div class="side-section side-zoom">
+          <div class="side-label">
+            <span>Zoom</span>
+            <button id="zoom-reset" class="link-btn" title="Reset zoom">reset</button>
+          </div>
+          <input id="zoom" type="range" step="2" />
+        </div>
+      </div>
+      <button id="btn-sidebar-expand" title="Show tools">▸</button>
+    </aside>
+    <main id="scroller">
+      <div id="dow-row"></div>
+      <div id="sticky-month"><div id="sticky-month-label"></div></div>
+      <div id="sizer"></div>
+    </main>
+    <aside id="minimap">
+      <div id="mini-year"></div>
+      <div id="mini-track" title="Click or drag to jump">
+        <div id="mini-months"></div>
+        <div id="mini-viewport"></div>
+        <div id="mini-today" hidden></div>
+      </div>
+    </aside>
+  </div>
+
+  <div id="signin" class="center-screen" hidden>
+    <div class="card">
+      <h1>BetterCal</h1>
+      <p>One continuous, scrolling column of weeks — no month boundaries.</p>
+      <button id="btn-signin" class="btn primary">Connect Google Calendar</button>
+      <p id="signin-error" class="error-text" hidden></p>
+    </div>
+  </div>
+
+  <div id="boot-error" class="center-screen" hidden>
+    <div class="card">
+      <h1>Something went wrong</h1>
+      <p id="boot-error-msg" class="error-text"></p>
+      <button id="btn-boot-retry" class="btn primary">Retry</button>
+    </div>
+  </div>
+
+  <div id="loading" class="center-screen" hidden>
+    <div class="spinner" role="status" aria-label="Loading"></div>
+  </div>
+
+  <div id="editor-backdrop" hidden>
+    <div id="editor" role="dialog" aria-labelledby="ev-heading">
+      <div id="ev-heading" class="ev-heading">New event</div>
+      <input id="ev-title" type="text" placeholder="Add title" autocomplete="off" />
+      <div class="ev-row">
+        <select id="ev-calendar" title="Calendar"></select>
+        <label class="ev-allday"><input id="ev-allday" type="checkbox" /> All day</label>
+      </div>
+      <div class="ev-row ev-times">
+        <input id="ev-start-date" type="date" />
+        <input id="ev-start-time" type="time" />
+        <span class="ev-arrow">→</span>
+        <input id="ev-end-date" type="date" />
+        <input id="ev-end-time" type="time" />
+      </div>
+      <input id="ev-location" type="text" placeholder="Location" autocomplete="off" />
+      <textarea id="ev-desc" rows="3" placeholder="Description"></textarea>
+      <div id="ev-error" class="error-text" hidden></div>
+      <div class="ev-actions">
+        <button id="ev-delete" class="btn small danger" hidden>Delete</button>
+        <a id="ev-gcal-link" target="_blank" hidden>Open in Google Calendar ↗</a>
+        <span class="ev-spacer"></span>
+        <button id="ev-cancel" class="btn">Cancel</button>
+        <button id="ev-save" class="btn primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" hidden>
+    <span id="toast-msg"></span>
+    <button id="btn-toast-retry" class="btn small">Retry</button>
+    <button id="btn-toast-close" class="btn small subtle">✕</button>
+  </div>
+
+  <script type="module" src="dist/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,819 @@
+:root {
+  --row-h: 150px;
+  --dow-h: 28px;
+  --side-w: 216px;
+  --side-w-collapsed: 30px;
+  --mini-w: 64px;
+  --wk-gutter: 22px;
+
+  --bg: #ffffff;
+  --bg-alt: #f6f7f8;
+  --fg: #1f2328;
+  --fg-muted: #6b7280;
+  --line: #e5e7eb;
+  --line-strong: #d1d5db;
+  --accent: #2563eb;
+  --accent-fg: #ffffff;
+  --today-bg: #eff6ff;
+  --today-ring: #2563eb;
+  --weekend-bg: #f2f4f8;
+  --pill-bg: #1f2328;
+  --pill-fg: #ffffff;
+  --skeleton: #eceef0;
+  --panel-bg: #ffffff;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17191c;
+    --bg-alt: #1d2024;
+    --fg: #e6e8ea;
+    --fg-muted: #9aa1a9;
+    --line: #2a2e33;
+    --line-strong: #3a3f45;
+    --accent: #4f8ef7;
+    --accent-fg: #0e1116;
+    --today-bg: #1b2a45;
+    --today-ring: #4f8ef7;
+    --weekend-bg: #1a1d22;
+    --pill-bg: #e6e8ea;
+    --pill-fg: #17191c;
+    --skeleton: #24282d;
+    --panel-bg: #1d2024;
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font: 13px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* ---------- Buttons ---------- */
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
+  color: var(--fg);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+.btn:hover { background: var(--bg-alt); }
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.subtle { border-color: transparent; color: var(--fg-muted); }
+.btn.small { padding: 2px 8px; font-size: 12px; }
+
+.date-jump { position: relative; overflow: hidden; display: inline-flex; align-items: center; }
+.date-jump input[type="date"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* ---------- Flyout panels (settings, calendars) ---------- */
+
+.flyout {
+  position: fixed;
+  top: 42px;
+  left: calc(var(--side-w) + 6px);
+  z-index: 30;
+  width: 280px;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: var(--panel-bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 8px 0;
+}
+
+.panel-section { padding: 8px 14px; }
+.panel-section + .panel-section { border-top: 1px solid var(--line); }
+.panel-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-muted);
+  margin-bottom: 6px;
+}
+#week-start {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+}
+
+.calendar-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  cursor: pointer;
+}
+.calendar-list .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+.calendar-list .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Body row: sidebar + scroller ---------- */
+
+#body-row {
+  display: flex;
+  height: 100%;
+}
+#body-row[hidden] { display: none; }
+
+/* ---------- Collapsible tool sidebar ---------- */
+
+#sidebar {
+  width: var(--side-w);
+  flex: none;
+  border-right: 1px solid var(--line);
+  background: var(--bg-alt);
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+  transition: width 0.12s ease;
+}
+#sidebar.collapsed { width: var(--side-w-collapsed); }
+
+.side-head {
+  height: 36px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--line);
+}
+#btn-sidebar {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 5px;
+}
+#btn-sidebar:hover { background: rgba(127, 127, 127, 0.12); color: var(--fg); }
+.side-brand {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.side-actions {
+  display: flex;
+  gap: 6px;
+}
+.side-actions .btn { flex: 1; text-align: center; justify-content: center; }
+.side-actions #btn-settings { flex: none; }
+.side-actions #btn-today {
+  flex: none;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.side-actions #btn-today:hover { filter: brightness(1.08); background: var(--accent); }
+
+/* Clock + extra time zones */
+.side-clock { text-align: left; }
+.clock-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.clock-main { flex: 1; min-width: 0; }
+#clock-time {
+  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+#clock-time .clock-sec { color: var(--fg-muted); font-weight: 500; }
+#clock-date {
+  font-size: 11.5px;
+  color: var(--fg-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#tz-list { margin-top: 8px; }
+.tz-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 1px 0;
+  font-size: 12px;
+}
+.tz-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-muted);
+}
+.tz-time { font-variant-numeric: tabular-nums; font-weight: 600; }
+.tz-delta { font-size: 10px; color: var(--fg-muted); min-width: 30px; text-align: right; }
+.tz-del {
+  border: none;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 9px;
+  cursor: pointer;
+  padding: 0 2px;
+  opacity: 0;
+}
+.tz-row:hover .tz-del { opacity: 1; }
+.tz-del:hover { color: var(--fg); }
+#tz-select { width: 100%; margin-top: 6px; font: inherit; font-size: 11px; }
+#btn-tz-add { display: block; margin-top: 4px; }
+
+/* Weather */
+.side-weather { cursor: pointer; }
+#weather-main { font-size: 13px; font-weight: 600; }
+#weather-sun {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+#weather-sun[hidden] { display: none; }
+
+.side-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.side-section { padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.side-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fg-muted);
+  margin-bottom: 8px;
+}
+.link-btn {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 10px;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+  padding: 0;
+}
+
+#zoom { width: 100%; accent-color: var(--accent); cursor: pointer; }
+
+/* Pin the zoom control to the bottom of the sidebar. */
+.side-zoom { margin-top: auto; border-bottom: none; border-top: 1px solid var(--line); }
+
+
+/* Collapsed: hide everything but the expand button. */
+#btn-sidebar-expand {
+  display: none;
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  padding: 8px 0;
+  font-size: 13px;
+}
+#sidebar.collapsed .side-head,
+#sidebar.collapsed .side-body { display: none; }
+#sidebar.collapsed #btn-sidebar-expand { display: block; }
+
+/* Year minimap — always-visible right rail */
+#minimap {
+  width: var(--mini-w);
+  flex: none;
+  border-left: 1px solid var(--line);
+  background: var(--bg-alt);
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+#mini-year {
+  height: 22px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fg-muted);
+  border-bottom: 1px solid var(--line);
+}
+#mini-track {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  cursor: pointer;
+  overflow: hidden;
+}
+#mini-months {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+.mini-month {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-muted);
+  border-top: 1px solid var(--line);
+}
+.mini-month:first-child { border-top: none; }
+.mini-month.alt { background: rgba(127, 127, 127, 0.06); }
+#mini-viewport {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  min-height: 6px;
+  background: var(--accent);
+  opacity: 0.16;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  pointer-events: none;
+}
+#mini-today {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 2px solid #e5484d;
+  pointer-events: none;
+}
+#mini-today[hidden] { display: none; }
+
+/* ---------- Scroller / weeks ---------- */
+
+#scroller {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* The native scrollbar is useless across a ±50-year virtual range — hide it;
+     the minimap is the position indicator, and wheel/keys still scroll. */
+  scrollbar-width: none;
+}
+#scroller::-webkit-scrollbar { display: none; }
+
+#dow-row {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: var(--dow-h);
+  padding-left: var(--wk-gutter);
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+#dow-row .dow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fg-muted);
+}
+
+/* Pinned month label: a zero-height sticky slot right below the weekday
+   header, so it overlays the weeks without shifting the sizer's geometry. */
+#sticky-month {
+  position: sticky;
+  top: var(--dow-h);
+  height: 0;
+  z-index: 9; /* below #dow-row (10) so the label slides under it on handoff */
+  pointer-events: none;
+}
+#sticky-month-label {
+  position: absolute;
+  top: 6px;
+  left: calc(var(--wk-gutter) + 8px);
+  background: var(--pill-bg);
+  color: var(--pill-fg);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+#sizer { position: relative; }
+
+.week {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: var(--row-h);
+  border-bottom: 1px solid var(--line);
+}
+
+/* Week number in the left gutter. */
+.wknum {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--wk-gutter);
+  bottom: 0;
+  z-index: 0;
+  padding-top: 5px;
+  display: flex;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  opacity: 0.7;
+  border-right: 1px solid var(--line);
+}
+
+/* Background layer: 7 day cells (grid lines, shading, today, date numbers). */
+.week-bg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--wk-gutter);
+  right: 0;
+  z-index: 0;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  overflow: hidden;
+}
+/* Event layer: spanning bars + timed chips, absolutely positioned on top. */
+.week-ev {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--wk-gutter);
+  right: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.week-ev > * { pointer-events: auto; }
+
+.month-pill {
+  position: absolute;
+  top: -1px;
+  transform: translateY(-50%);
+  z-index: 2;
+  margin-left: 8px;
+  background: var(--pill-bg);
+  color: var(--pill-fg);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 999px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.day {
+  min-width: 0;
+  border-right: 1px solid var(--line);
+  overflow: hidden;
+}
+.day:last-child { border-right: none; }
+.day.m-odd { background: var(--bg-alt); }
+.day.weekend { background: var(--weekend-bg); }
+.day.today { background: var(--today-bg); }
+
+.dhead {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 3px 5px 0;
+}
+.dnum {
+  min-width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 12px;
+}
+.day.today .dnum {
+  background: var(--today-ring);
+  color: var(--accent-fg);
+  border-radius: 50%;
+}
+.dmon {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+/* Positioned event elements (bars, chips, more, skeletons). */
+.chip {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  line-height: 1;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  font-family: inherit;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.chip .cdot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+.chip .ctime {
+  color: var(--fg-muted);
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.chip .ctitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chip.timed:hover { background: var(--bg-alt); }
+.chip.banner {
+  font-weight: 600;
+  border-radius: 3px;
+}
+/* Give the title room so it clears the cut end (body stops 6px early). */
+.chip.banner.cut-l { padding-left: 12px; }
+.chip.banner.cut-r { padding-right: 12px; }
+.chip.banner:hover { filter: brightness(1.08); }
+.chip.banner.cont-l { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.chip.banner.cont-r { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+
+/* Drag handles: each editable end of a bar is cut — the body stops 6px
+   early, a 3px transparent gap shows the calendar through, and a detached
+   3px slice of the bar itself marks the original end. The cut is punched
+   out of the bar with a mask; the .hdl children are just invisible 9px-wide
+   hit areas over the slice + gap. */
+.chip .hdl {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 9px;
+  cursor: ew-resize;
+}
+.chip .hdl-l { left: 0; }
+.chip .hdl-r { right: 0; }
+.chip.banner.cut-l {
+  -webkit-mask-image: linear-gradient(to right, #000 0 3px, transparent 3px 6px, #000 6px);
+  mask-image: linear-gradient(to right, #000 0 3px, transparent 3px 6px, #000 6px);
+}
+.chip.banner.cut-r {
+  -webkit-mask-image: linear-gradient(to left, #000 0 3px, transparent 3px 6px, #000 6px);
+  mask-image: linear-gradient(to left, #000 0 3px, transparent 3px 6px, #000 6px);
+}
+.chip.banner.cut-l.cut-r {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 0 3px,
+    transparent 3px 6px,
+    #000 6px calc(100% - 6px),
+    transparent calc(100% - 6px) calc(100% - 3px),
+    #000 calc(100% - 3px)
+  );
+  mask-image: linear-gradient(
+    to right,
+    #000 0 3px,
+    transparent 3px 6px,
+    #000 6px calc(100% - 6px),
+    transparent calc(100% - 6px) calc(100% - 3px),
+    #000 calc(100% - 3px)
+  );
+}
+
+/* The event being dragged (drawn at its preview position). */
+.chip.dragging { opacity: 0.65; pointer-events: none; }
+body.dragging-move, body.dragging-move * { cursor: grabbing !important; }
+body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
+
+.more {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  border: none;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 11px;
+  font-family: inherit;
+  text-align: left;
+  padding: 0 5px;
+  cursor: pointer;
+}
+.more:hover { color: var(--fg); }
+
+/* Loading skeletons */
+.skel {
+  position: absolute;
+  border-radius: 4px;
+  background: var(--skeleton);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+/* ---------- Full-screen states ---------- */
+
+.center-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  z-index: 20;
+}
+/* The `hidden` attribute must beat the author `display: flex` above,
+   otherwise every overlay stays painted and the spinner covers the app. */
+.center-screen[hidden] {
+  display: none;
+}
+.card {
+  max-width: 360px;
+  text-align: center;
+  padding: 32px;
+}
+.card h1 { font-size: 22px; margin: 0 0 8px; }
+.card p { color: var(--fg-muted); margin: 0 0 20px; }
+.error-text { color: #dc2626; font-size: 12px; word-break: break-word; }
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- Event editor modal ---------- */
+
+#editor-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+}
+#editor-backdrop[hidden] { display: none; }
+
+#editor {
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  background: var(--panel-bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ev-heading {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-muted);
+}
+
+#editor input[type="text"],
+#editor input[type="date"],
+#editor input[type="time"],
+#editor select,
+#editor textarea {
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 6px 8px;
+  min-width: 0;
+}
+#ev-title { font-size: 16px; font-weight: 600; }
+#editor textarea { resize: vertical; }
+
+.ev-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ev-row select { flex: 1; }
+.ev-allday {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ev-times { flex-wrap: wrap; }
+.ev-times input[type="date"] { flex: 1; }
+.ev-arrow { color: var(--fg-muted); }
+.ev-times input[hidden] { display: none; }
+
+.ev-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.ev-spacer { flex: 1; }
+#ev-gcal-link { font-size: 11.5px; color: var(--accent); text-decoration: none; }
+#ev-gcal-link:hover { text-decoration: underline; }
+.btn.danger { color: #dc2626; border-color: #dc2626; }
+.btn.danger.confirm { background: #dc2626; color: #fff; }
+.btn.danger[hidden] { display: none; }
+#ev-gcal-link[hidden] { display: none; }
+
+/* ---------- Toast ---------- */
+
+#toast {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--panel-bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 8px 12px;
+  max-width: 90vw;
+}
+#toast[hidden] { display: none; }
