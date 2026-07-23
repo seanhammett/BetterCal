@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "BetterCal — Infinite Week Calendar",
   "version": "1.0.0",
-  "description": "Your Google Calendar as one continuous, infinitely scrolling column of weeks.",
+  "description": "Your Google Calendar as one continuous, infinitely scrolling run of weeks. No ads, no tracking, no accounts.",
   "minimum_chrome_version": "116",
   "action": {
     "default_title": "Open BetterCal",
@@ -21,8 +21,11 @@
     "service_worker": "dist/background.js",
     "type": "module"
   },
-  "permissions": ["identity", "storage", "tabs"],
-  "host_permissions": ["https://www.googleapis.com/*", "https://api.open-meteo.com/*"],
+  "permissions": ["identity", "storage"],
+  "host_permissions": ["https://www.googleapis.com/*", "https://oauth2.googleapis.com/*"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src https://www.googleapis.com https://oauth2.googleapis.com; img-src 'self' data:; style-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'"
+  },
   "oauth2": {
     "client_id": "144819819650-svune6ojidas8shs774s58sf8sl1n3v2.apps.googleusercontent.com",
     "scopes": [

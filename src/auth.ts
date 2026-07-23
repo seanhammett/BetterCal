@@ -35,12 +35,25 @@ export function signIn(): Promise<string> {
   return getAuthToken(true);
 }
 
+/**
+ * Sign out and actually disconnect: revoke the grant at Google before dropping
+ * the local caches, so "Sign out" leaves nothing behind on the account either.
+ * The token goes in the POST body rather than the query string so it can't be
+ * captured in any intermediate request log.
+ */
 export async function signOut(): Promise<void> {
   try {
     const token = await getAuthToken(false);
+    await fetch("https://oauth2.googleapis.com/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token }).toString(),
+    }).catch(() => {
+      // Offline, or already revoked — clearing the local caches below still
+      // signs the user out here; the grant can be removed from their Google
+      // account page instead.
+    });
     await removeCachedToken(token);
-    // Revoke so "Sign out" fully disconnects, not just clears the local cache.
-    await fetch(`https://accounts.google.com/o/oauth2/revoke?token=${token}`).catch(() => {});
   } catch {
     // Not signed in — nothing to do.
   }

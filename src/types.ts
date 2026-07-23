@@ -18,8 +18,6 @@ export interface Settings {
   sidebarCollapsed: boolean;
   /** Extra IANA time zones shown under the clock. */
   timeZones: string[];
-  /** Weather temperature unit; "auto" follows the browser locale. */
-  tempUnit: "auto" | "c" | "f";
 }
 
 export type CalendarAccessRole = "owner" | "writer" | "reader" | "freeBusyReader";

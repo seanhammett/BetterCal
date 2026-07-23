@@ -356,19 +356,6 @@ html, body {
 #tz-select { width: 100%; margin-top: 6px; font: inherit; font-size: 11px; }
 #btn-tz-add { display: block; margin-top: 4px; }
 
-/* Weather */
-.side-weather { cursor: pointer; }
-#weather-main { font-size: 13px; font-weight: 600; }
-#weather-sun {
-  display: flex;
-  gap: 12px;
-  margin-top: 4px;
-  font-size: 11.5px;
-  color: var(--fg-muted);
-  font-variant-numeric: tabular-nums;
-}
-#weather-sun[hidden] { display: none; }
-
 .side-body {
   flex: 1;
   min-height: 0;

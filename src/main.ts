@@ -28,7 +28,7 @@ import {
 } from "./layout.js";
 import { type DragPreview, renderWeekContents } from "./render.js";
 import { EventStore } from "./store.js";
-import { initClock, initWeather } from "./widgets.js";
+import { initClock } from "./widgets.js";
 import {
   type CalEvent,
   type CalendarInfo,
@@ -73,7 +73,6 @@ const settings: Settings = {
   sleepMinutes: null,
   sidebarCollapsed: false,
   timeZones: [],
-  tempUnit: "auto",
 };
 
 const mounted = new Map<number, HTMLElement>();
@@ -310,9 +309,6 @@ async function loadSettings(): Promise<void> {
     }
     if (Array.isArray(saved.timeZones)) {
       settings.timeZones = saved.timeZones.filter((z): z is string => typeof z === "string");
-    }
-    if (saved.tempUnit === "auto" || saved.tempUnit === "c" || saved.tempUnit === "f") {
-      settings.tempUnit = saved.tempUnit;
     }
   }
   rowHeight = settings.rowHeight;
@@ -958,14 +954,6 @@ async function boot(): Promise<void> {
   });
 
   initClock(settings, saveSettings);
-  const refreshWeather = initWeather(settings);
-  const tempUnit = $<HTMLSelectElement>("temp-unit");
-  tempUnit.value = settings.tempUnit;
-  tempUnit.addEventListener("change", () => {
-    settings.tempUnit = tempUnit.value as Settings["tempUnit"];
-    saveSettings();
-    refreshWeather();
-  });
 
   try {
     await ensureSignedIn();

@@ -21,8 +21,18 @@ A Chrome extension (Manifest V3) that shows your Google Calendar as **one contin
 - **Event editing** — click an empty day cell to create an event, click an event to edit or delete it (title, calendar, all-day or timed, multi-day, location, description). Recurring events and read-only calendars open in Google Calendar instead; "+N more" opens that day's view.
 - **Drag to reschedule** — in Month view, drag a timed event to another day (time of day is kept), or grab the detached blip at either end of an all-day bar to change its start or end. Esc cancels a drag in progress. *(Week view is click-to-edit only for now — dragging there would mean changing the time of day, not just the day.)*
 - **Sidebar clock** — a large live time in IBM Plex Sans' tabular figures (so the digits don't shuffle), with the weekday and the date on their own lines beneath it, plus any extra time zones you add.
-- Light & dark theme (follows the system), IBM Plex Sans bundled in `fonts/` (no webfont requests — see `docs/RELEASE_CHECKLIST.md` before packaging), loading skeletons, and error toasts with retry.
-- OAuth scopes: `calendar.events`, `calendar.calendars`, `calendar.calendarlist` (read/write — editing support is being built; see `docs/EDITING_PLAN.md`). No data leaves your browser.
+- Light & dark theme (follows the system), IBM Plex Sans bundled in `fonts/` (no webfont requests), loading skeletons, and error toasts with retry.
+
+## Privacy
+
+BetterCal collects nothing. There is no BetterCal server, so there is nowhere for your data to go even in principle.
+
+- **Two network destinations, both Google:** `www.googleapis.com` for the Calendar API, and `oauth2.googleapis.com` for revoking your token when you sign out. The manifest's `connect-src` pins those two hosts, so nothing else is reachable from the extension's pages.
+- **Two permissions:** `identity` (to get a token for the Google account Chrome is already signed in to) and `storage` (display preferences only — chosen calendars, week start, zoom, view, wake/sleep times, clock time zones, sidebar state). Your events are held in memory for the session and never written to disk.
+- **No location, no `tabs` permission, no analytics, no ads, no cookies, no remote code.** The service worker finds its own tab via `chrome.runtime.getContexts`, so Chrome never has to warn that BetterCal can read your browsing history — it can't.
+- OAuth scopes: `calendar.events`, `calendar.calendars`, `calendar.calendarlist` (read/write, so events can be created and edited in place; see `docs/EDITING_PLAN.md`).
+
+Full policy: [`docs/PRIVACY.md`](docs/PRIVACY.md).
 
 ## Prerequisites
 
@@ -38,6 +48,14 @@ npm run build     # or: npm run watch (rebuild on change)
 ```
 
 This bundles `src/` into `dist/`. The unpacked extension is the repository root itself (`manifest.json`, `calendar.html`, `styles.css`, `dist/`).
+
+To build the Chrome Web Store zip instead:
+
+```bash
+npm run package   # -> build/bettercal-<version>.zip
+```
+
+The repo root is *not* what ships — it also holds `src/`, `node_modules/`, `docs/` and 44 fonts of which one is used. `scripts/package.mjs` therefore assembles the zip from an explicit allowlist (ten files, ~322 kB) and refuses to build if anything shipped references a file that isn't in it, if the versions in `manifest.json` and `package.json` disagree, or if the OAuth client ID is still a placeholder. See [`docs/STORE_LISTING.md`](docs/STORE_LISTING.md) for the submission process and [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) for what to check by hand.
 
 ## 2. Load the unpacked extension (first pass)
 
@@ -99,7 +117,8 @@ If you want the extension ID to be identical everywhere (e.g., across machines o
 - **"OAuth2 not granted or revoked"** — you haven't approved consent yet, or you revoked it; the extension shows the connect screen, just click through again.
 - **"bad client id" / "invalid OAuth2 Client ID"** — the client ID in `manifest.json` doesn't match a Chrome-Extension-type OAuth client bound to your current extension ID. Re-check step 3.4 (the Item ID must equal the ID on `chrome://extensions`), and reload the extension after editing the manifest.
 - **403 "Google Calendar API has not been used in project…"** — enable the Calendar API (step 3.2).
-- **Consent screen says "unverified app"** — expected while the Cloud project is in Testing; proceed via *Continue* (you must be listed as a test user).
+- **Consent screen says "unverified app"** — expected while the Cloud project is in Testing; proceed via *Continue* (you must be listed as a test user). Clearing this for other people means OAuth verification — see [`docs/STORE_LISTING.md`](docs/STORE_LISTING.md) §5.
+- **Works unpacked, "bad client id" once installed from the store** — the store issues a different extension ID than the local unpacked build, and the OAuth client is bound to one specific ID. You need a client for each. STORE_LISTING.md §2.
 - **Changed the manifest but nothing happened** — unpacked extensions need a manual reload from `chrome://extensions`.
 
 ## Project layout
@@ -118,9 +137,19 @@ src/
   auth.ts            getAuthToken wrapper, 401 retry, sign-out/revoke
   weekview.ts        the horizontal week grid (hours, all-day band, seams)
   layout.ts          lane packing, overlap clustering, week-grid geometry
+  widgets.ts         sidebar clock and extra time zones
   dates.ts           week-index math, formatting (DST-safe day numbering)
   types.ts           shared types
 dist/                esbuild output (what the manifest points at)
+scripts/
+  package.mjs        assembles the store zip from an allowlist, with checks
+  gen-icons.mjs      regenerates the sun icons (pure Node, no image libraries)
+docs/
+  PRIVACY.md         the privacy policy that has to be hosted for the listing
+  STORE_LISTING.md   submission process, permission justifications, OAuth verification
+  RELEASE_CHECKLIST.md  pre-upload checks and the privacy invariants behind them
+  EDITING_PLAN.md    design notes for the event editor
+build/               the packaged zip (gitignored)
 ```
 
 ### How the infinite scroll works
