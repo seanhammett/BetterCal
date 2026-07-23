@@ -19,10 +19,14 @@ import {
   ALLDAY_LANE_H,
   ALLDAY_MAX_LANES,
   DAY_HEAD_H,
+  DENSE_DAY_W,
   HOUR_H,
   MAX_DAY_W,
   MIN_DAY_W,
+  WEEK_BAR_H,
   allDayBandH,
+  assignBannerLanes,
+  eventKey,
   layoutBanners,
   layoutDayGrid,
   weekPitch,
@@ -39,12 +43,20 @@ const PREFETCH_WEEKS = 12;
 const SLOT_SNAP = 30;
 /** Where the grid opens vertically, so the working day is on screen. */
 const OPEN_AT_HOUR = 7;
+/**
+ * Weeks of history folded into the all-day lane assignment. A bar's lane
+ * depends on the bars that started before it, which may have ended weeks ago
+ * and be off screen — this is how far back that chain is followed.
+ */
+const LANE_LOOKBACK = 6;
 
 export interface WeekViewDeps {
   store: EventStore;
   weekStart(): WeekStart;
   todayKey(): string;
   dayWidth(): number;
+  /** Wake / sleep times as minutes from midnight; null hides that line. */
+  dayHours(): { wake: number | null; sleep: number | null };
   onEventClick(event: CalEvent): void;
   /** Click on empty grid space — create at that day and time of day. */
   onSlotClick(date: Date, minutes: number): void;
@@ -57,8 +69,11 @@ export interface WeekView {
   activate(date: Date): void;
   hide(): void;
   layout(): void;
-  /** Re-render the mounted panels intersecting [firstWeek, lastWeek]. */
-  rerender(firstWeek?: number, lastWeek?: number): void;
+  /**
+   * Re-render every mounted panel. All-day lanes are assigned across weeks, so
+   * new events can move bars in weeks they don't themselves touch.
+   */
+  rerender(): void;
   /** Throw away every panel (week-start or calendar selection changed). */
   reset(): void;
   scrollToDate(date: Date, smooth: boolean): void;
@@ -83,15 +98,18 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
   const mounted = new Map<number, HTMLElement>();
   let dayWidth = deps.dayWidth();
   let bandLanes = 1;
+  /** Cross-week all-day lane assignment, keyed by eventKey(). */
+  let laneMap = new Map<string, number>();
   /** Set while activate() is restoring a scroll position, to skip layout churn. */
   let active = false;
 
   /* ---------------- Geometry ---------------- */
 
   const pitch = (): number => weekPitch(dayWidth);
-  const headH = (): number => DAY_HEAD_H + allDayBandH(bandLanes);
+  const headH = (): number => WEEK_BAR_H + DAY_HEAD_H + allDayBandH(bandLanes);
 
   function applyGeometry(): void {
+    root.classList.toggle("dense", dayWidth < DENSE_DAY_W);
     root.style.setProperty("--day-w", `${dayWidth}px`);
     root.style.setProperty("--wk-head-h", `${headH()}px`);
     root.style.setProperty("--wk-allday-h", `${allDayBandH(bandLanes)}px`);
@@ -150,8 +168,14 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
     if (contR) el.classList.add("cont-r");
     el.style.background = e.color;
     el.style.color = contrastText(e.color);
-    el.style.left = `calc(${colStart} * var(--day-w) + 2px)`;
-    el.style.width = `calc(${cols} * var(--day-w) - 4px)`;
+    // A bar that carries on into the next week is drawn straight across the
+    // seam, ending exactly where the next week's half of it starts, so the two
+    // halves read as one ribbon laid over the break.
+    const pad = contL ? 0 : 2;
+    el.style.left = `calc(${colStart} * var(--day-w) + ${pad}px)`;
+    el.style.width = contR
+      ? `calc(${cols} * var(--day-w) + var(--wk-gap) - ${pad}px)`
+      : `calc(${cols} * var(--day-w) - ${pad + 2}px)`;
     el.style.top = `${lane * ALLDAY_LANE_H}px`;
     el.title = e.title;
 
@@ -199,14 +223,19 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
     const state = store.chunkStateForWeek(weekIdx);
     const events = state === "loaded" || state === "error" ? store.eventsForWeek(weekIdx) : [];
 
-    /* --- Pinned head: week tag, day names/dates, all-day band --- */
+    /* --- Pinned head: week bar, day names/dates, all-day band --- */
     const head = document.createElement("div");
     head.className = "wk-head";
 
-    const tag = document.createElement("div");
-    tag.className = "wk-tag";
-    tag.textContent = `W${isoWeek(addDays(start, weekStart === 0 ? 4 : 3))}`;
-    head.appendChild(tag);
+    // A thin bar across the full width of the week — it labels the week and
+    // caps it, so each week reads as one block between two seams.
+    const bar = document.createElement("div");
+    bar.className = "wk-bar";
+    const barLabel = document.createElement("span");
+    barLabel.className = "wk-bar-label";
+    barLabel.textContent = `Week ${isoWeek(addDays(start, weekStart === 0 ? 4 : 3))}`;
+    bar.appendChild(barLabel);
+    head.appendChild(bar);
 
     const days = document.createElement("div");
     days.className = "wk-days";
@@ -215,7 +244,7 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
 
     const band = document.createElement("div");
     band.className = "wk-allday";
-    const spans = layoutBanners(events, firstDay);
+    const spans = layoutBanners(events, firstDay, laneMap);
     let hidden = 0;
     for (const s of spans) {
       if (s.lane >= ALLDAY_MAX_LANES) {
@@ -269,6 +298,17 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
       cols.appendChild(col);
     }
     body.appendChild(cols);
+
+    // Wake / sleep markers: a faint pair of rules straight across the week,
+    // bracketing the hours the user is actually awake for.
+    const { wake, sleep } = deps.dayHours();
+    for (const mins of [wake, sleep]) {
+      if (mins === null) continue;
+      const mark = document.createElement("div");
+      mark.className = "wk-daymark";
+      mark.style.top = `${(mins / 60) * HOUR_H}px`;
+      body.appendChild(mark);
+    }
 
     const ev = document.createElement("div");
     ev.className = "wk-ev";
@@ -352,14 +392,44 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
     mounted.set(weekIdx, panel);
   }
 
+  /**
+   * Recompute the cross-week all-day lanes over [lo, hi] plus a run of history.
+   * Returns whether anything moved, since a change invalidates panels outside
+   * the weeks whose events actually changed.
+   */
+  function rebuildLanes(lo: number, hi: number): boolean {
+    const seen = new Set<string>();
+    const banners: CalEvent[] = [];
+    for (let w = Math.max(MIN_WEEK, lo - LANE_LOOKBACK); w <= hi; w++) {
+      for (const e of deps.store.eventsForWeek(w)) {
+        if (!e.banner) continue;
+        const key = eventKey(e);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        banners.push(e);
+      }
+    }
+    const next = assignBannerLanes(banners);
+    if (next.size === laneMap.size) {
+      let same = true;
+      for (const [key, lane] of next) {
+        if (laneMap.get(key) !== lane) {
+          same = false;
+          break;
+        }
+      }
+      if (same) return false;
+    }
+    laneMap = next;
+    return true;
+  }
+
   /** All-day lanes needed by the weeks on screen, so the band sizes to fit. */
   function neededLanes(first: number, last: number): number {
     let lanes = 1;
-    const ws = deps.weekStart();
     for (let w = first; w <= last; w++) {
-      const firstDay = dayNumber(weekStartDate(w, ws));
-      for (const s of layoutBanners(deps.store.eventsForWeek(w), firstDay)) {
-        lanes = Math.max(lanes, s.lane + 1);
+      for (const e of deps.store.eventsForWeek(w)) {
+        if (e.banner) lanes = Math.max(lanes, (laneMap.get(eventKey(e)) ?? 0) + 1);
       }
     }
     return Math.min(ALLDAY_MAX_LANES, lanes);
@@ -371,20 +441,25 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
     const lo = Math.max(MIN_WEEK, first - RENDER_BUFFER);
     const hi = Math.min(MAX_WEEK, last + RENDER_BUFFER);
 
-    // Resize the all-day band first — panels read it through a CSS var, but a
-    // change also has to re-run the sticky-head geometry.
-    const lanes = neededLanes(first, last);
-    if (lanes !== bandLanes) {
-      bandLanes = lanes;
-      applyGeometry();
-    }
-
     for (const [idx, el] of mounted) {
       if (idx < lo || idx > hi) {
         el.remove();
         mounted.delete(idx);
       }
     }
+
+    // Lanes first — panels are rendered from the map, and the band's height
+    // (a CSS var read by every panel) follows from it.
+    const lanesMoved = rebuildLanes(lo, hi);
+    const lanes = neededLanes(first, last);
+    if (lanes !== bandLanes) {
+      bandLanes = lanes;
+      applyGeometry();
+    }
+    if (lanesMoved) {
+      for (const [idx, el] of mounted) renderPanel(el, idx);
+    }
+
     for (let idx = lo; idx <= hi; idx++) {
       if (!mounted.has(idx)) mountWeek(idx);
     }
@@ -437,10 +512,16 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
     });
   }
 
-  function rerender(firstWeek = MIN_WEEK, lastWeek = MAX_WEEK): void {
-    for (const [idx, panel] of mounted) {
-      if (idx >= firstWeek && idx <= lastWeek) renderPanel(panel, idx);
+  function rerender(): void {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const idx of mounted.keys()) {
+      lo = Math.min(lo, idx);
+      hi = Math.max(hi, idx);
     }
+    if (lo > hi) return;
+    rebuildLanes(lo, hi);
+    for (const [idx, panel] of mounted) renderPanel(panel, idx);
   }
 
   function unmountAll(): void {

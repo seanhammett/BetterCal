@@ -10,16 +10,18 @@ A Chrome extension (Manifest V3) that shows your Google Calendar as **one contin
 - **Infinite scroll of weeks** — virtualized rendering in both views, so only the visible weeks (plus a buffer) exist in the DOM no matter how far you scroll.
 - **Week grid with real time-of-day** — 7 day columns × 24 hour rows, events sized by their duration, overlapping events split side by side, an all-day banner band pinned above the grid, and a current-time line on today. Click any empty slot to create an event at that day and time.
 - **Lazy, cached event fetching** — events load in 6-week chunks as you scroll into new date ranges; already-fetched ranges are never refetched.
-- **Continuous multi-day events** — all-day and multi-day events render as single bars spanning their days (packed into lanes), the way Google Calendar does it; timed events stack in their day column below.
+- **Continuous multi-day events** — all-day and multi-day events render as single bars spanning their days (packed into lanes), the way Google Calendar does it; timed events stack in their day column below. In Week view a bar that crosses a week break is drawn *over* the seam and keeps the same lane on both sides, so a fortnight-long event reads as one unbroken ribbon — even when the bar above it finished back in the previous week.
+- **Wake / sleep lines** — set your day's start and end in the sidebar and Week view draws a faint pair of rules straight across all seven days, so the hours you actually care about stand out from the other seventeen.
 - **Today anchor** — opens scrolled to the current week with today highlighted; a **Today** button jumps back anytime.
 - **Jump to any date** — a date picker scrolls you straight to that week.
 - **Year minimap** — an always-visible VSCode-style overview rail that follows the axis you scroll on: down the right edge in Month view, along the bottom in Week view. The highlighted window tracks your scroll position, and you can click or drag to jump anywhere in the year.
-- **Collapsible tool sidebar** — a left sidebar with the **Month / Week** tabs, a **zoom** slider (week-row height in Month view, day-column width in Week view) and the **calendar show/hide** list; collapses to reclaim width.
-- **Week numbers & weekend shading** — a small ISO week number in the left gutter (a `W30` tag in Week view), and weekends tinted distinctly from weekdays.
+- **Collapsible tool sidebar** — a left sidebar with the **Month / Week** tabs, a **zoom** slider (week-row height in Month view, day-column width in Week view — zoomed right out, Week view fits five-plus weeks side by side), the **wake / sleep** times and the **calendar show/hide** list; collapses to reclaim width.
+- **Week numbers & weekend shading** — a small ISO week number in the left gutter (in Week view, a thin bar across the top of each week), and weekends tinted distinctly from weekdays.
 - **Configurable week start** — Sunday or Monday (in ⚙).
 - **Event editing** — click an empty day cell to create an event, click an event to edit or delete it (title, calendar, all-day or timed, multi-day, location, description). Recurring events and read-only calendars open in Google Calendar instead; "+N more" opens that day's view.
 - **Drag to reschedule** — in Month view, drag a timed event to another day (time of day is kept), or grab the detached blip at either end of an all-day bar to change its start or end. Esc cancels a drag in progress. *(Week view is click-to-edit only for now — dragging there would mean changing the time of day, not just the day.)*
-- Light & dark theme (follows the system), loading skeletons, and error toasts with retry.
+- **Sidebar clock** — a large live time in IBM Plex Sans' tabular figures (so the digits don't shuffle), with the weekday and the date on their own lines beneath it, plus any extra time zones you add.
+- Light & dark theme (follows the system), IBM Plex Sans bundled in `fonts/` (no webfont requests — see `docs/RELEASE_CHECKLIST.md` before packaging), loading skeletons, and error toasts with retry.
 - OAuth scopes: `calendar.events`, `calendar.calendars`, `calendar.calendarlist` (read/write — editing support is being built; see `docs/EDITING_PLAN.md`). No data leaves your browser.
 
 ## Prerequisites
@@ -106,6 +108,7 @@ If you want the extension ID to be identical everywhere (e.g., across machines o
 manifest.json        MV3 manifest (OAuth client ID + scopes live here)
 calendar.html        the full-page calendar tab
 styles.css           all styling (light/dark)
+fonts/               IBM Plex Sans (only the variable upright file is referenced)
 src/
   background.ts      service worker: toolbar icon opens/focuses the tab
   main.ts            boot, auth flow, virtualized week list, toolbar/panel
@@ -113,6 +116,8 @@ src/
   store.ts           chunked event cache keyed by day
   gcal.ts            Calendar API client (pagination, error mapping)
   auth.ts            getAuthToken wrapper, 401 retry, sign-out/revoke
+  weekview.ts        the horizontal week grid (hours, all-day band, seams)
+  layout.ts          lane packing, overlap clustering, week-grid geometry
   dates.ts           week-index math, formatting (DST-safe day numbering)
   types.ts           shared types
 dist/                esbuild output (what the manifest points at)

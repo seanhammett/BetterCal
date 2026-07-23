@@ -10,8 +10,8 @@ const clockTimeFmt = new Intl.DateTimeFormat(undefined, {
   minute: "2-digit",
   second: "2-digit",
 });
+const clockDowFmt = new Intl.DateTimeFormat(undefined, { weekday: "long" });
 const clockDateFmt = new Intl.DateTimeFormat(undefined, {
-  weekday: "long",
   month: "long",
   day: "numeric",
   year: "numeric",
@@ -43,6 +43,7 @@ function zoneDelta(zone: string, now: Date): string {
 
 export function initClock(settings: Settings, save: () => void): void {
   const timeEl = $("clock-time");
+  const dowEl = $("clock-dow");
   const dateEl = $("clock-date");
   const listEl = $("tz-list");
   const select = $<HTMLSelectElement>("tz-select");
@@ -95,15 +96,22 @@ export function initClock(settings: Settings, save: () => void): void {
 
   function tick(): void {
     const now = new Date();
-    // Render the seconds (and their leading separator) in a muted span.
+    // Hours and minutes carry the size; the seconds and any am/pm are demoted
+    // to a muted span (along with the separator that leads into them) so the
+    // big reading stays legible at a glance.
     const parts = clockTimeFmt.formatToParts(now);
+    const demoted = (i: number): string => {
+      const type = parts[i].type === "literal" ? parts[i + 1]?.type : parts[i].type;
+      if (type === "second") return "clock-sec";
+      return type === "dayPeriod" ? "clock-ap" : "";
+    };
     timeEl.innerHTML = parts
-      .map((p, i) =>
-        p.type === "second" || (p.type === "literal" && parts[i + 1]?.type === "second")
-          ? `<span class="clock-sec">${p.value}</span>`
-          : p.value,
-      )
+      .map((p, i) => {
+        const cls = demoted(i);
+        return cls ? `<span class="${cls}">${p.value}</span>` : p.value;
+      })
       .join("");
+    dowEl.textContent = clockDowFmt.format(now);
     dateEl.textContent = clockDateFmt.format(now);
     for (const el of listEl.querySelectorAll<HTMLElement>(".tz-time")) {
       el.textContent = fmtFor(el.dataset.zone!).format(now);

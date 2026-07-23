@@ -1,3 +1,14 @@
+/* Bundled locally rather than fetched — the extension makes no requests it
+   doesn't have to. One variable file covers every weight the UI uses. */
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("fonts/IBMPlexSans-VariableFont_wdth,wght.ttf") format("truetype-variations");
+  font-weight: 100 700;
+  font-stretch: 85% 100%;
+  font-style: normal;
+  font-display: block;
+}
+
 :root {
   --row-h: 150px;
   --dow-h: 28px;
@@ -10,12 +21,17 @@
   /* Week grid — these must match the constants in src/layout.ts. */
   --hour-h: 44px;
   --day-head-h: 44px;
+  --wk-bar-h: 18px;
   --hr-gutter: 54px;
   --wk-gap: 12px;
   /* Seeded here, then driven by JS (zoom, all-day lane count). */
   --day-w: 160px;
   --wk-allday-h: 26px;
-  --wk-head-h: 70px;
+  --wk-head-h: 88px;
+
+  /* The detached slice marking a draggable bar end, rounded off. Sized per
+     use to 3px × the bar's height, so the radii land where they should. */
+  --blip-mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 18" preserveAspectRatio="none"><rect width="3" height="18" rx="1.4" ry="1.4" fill="black"/></svg>');
 
   --bg: #ffffff;
   --bg-alt: #f6f7f8;
@@ -28,6 +44,7 @@
   --today-bg: #eff6ff;
   --today-ring: #2563eb;
   --weekend-bg: #f2f4f8;
+  --daymark: rgba(202, 138, 4, 0.5);
   --pill-bg: #1f2328;
   --pill-fg: #ffffff;
   --skeleton: #eceef0;
@@ -48,6 +65,7 @@
     --today-bg: #1b2a45;
     --today-ring: #4f8ef7;
     --weekend-bg: #1a1d22;
+    --daymark: rgba(250, 204, 21, 0.4);
     --pill-bg: #e6e8ea;
     --pill-fg: #17191c;
     --skeleton: #24282d;
@@ -63,7 +81,8 @@ html, body {
   height: 100%;
   background: var(--bg);
   color: var(--fg);
-  font: 13px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font: 13px/1.35 "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
 }
 
 /* ---------- Buttons ---------- */
@@ -267,18 +286,40 @@ html, body {
   gap: 10px;
 }
 .clock-main { flex: 1; min-width: 0; }
+/* The live clock is the sidebar's headline. Plex Sans' tabular figures keep
+   the digits from shuffling every second; the mono stack is only a fallback
+   for the (local) font failing to load. */
 #clock-time {
-  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 19px;
-  font-weight: 700;
-  line-height: 1.1;
+  font-family: "IBM Plex Sans", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
   white-space: nowrap;
 }
-#clock-time .clock-sec { color: var(--fg-muted); font-weight: 500; }
-#clock-date {
-  font-size: 11.5px;
+#clock-time .clock-sec,
+#clock-time .clock-ap {
+  font-size: 0.55em;
   color: var(--fg-muted);
-  margin-top: 2px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+#clock-dow {
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.15;
+  margin-top: 7px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#clock-date {
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--fg-muted);
+  line-height: 1.2;
+  margin-top: 1px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -359,6 +400,30 @@ html, body {
 }
 
 #zoom { width: 100%; accent-color: var(--accent); cursor: pointer; }
+
+/* Wake / sleep times (week view only). */
+.side-hours[hidden] { display: none; }
+.hours-row { display: flex; gap: 8px; }
+.hours-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 10.5px;
+  color: var(--fg-muted);
+}
+.hours-field input[type="time"] {
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  padding: 3px 5px;
+}
 
 /* Pin the zoom control to the bottom of the sidebar. */
 .side-zoom { margin-top: auto; border-bottom: none; border-top: 1px solid var(--line); }
@@ -702,9 +767,10 @@ html, body {
 
 /* Drag handles: each editable end of a bar is cut — the body stops 6px
    early, a 3px transparent gap shows the calendar through, and a detached
-   3px slice of the bar itself marks the original end. The cut is punched
-   out of the bar with a mask; the .hdl children are just invisible 9px-wide
-   hit areas over the slice + gap. */
+   3px slice of the bar itself marks the original end. The cut is punched out
+   of the bar with a two-layer mask: a rounded slice, plus a plain rectangle
+   for the body. (The layers union — the default mask-composite.) The .hdl
+   children are just invisible 9px-wide hit areas over the slice + gap. */
 .chip .hdl {
   position: absolute;
   top: 0;
@@ -715,30 +781,30 @@ html, body {
 .chip .hdl-l { left: 0; }
 .chip .hdl-r { right: 0; }
 .chip.banner.cut-l {
-  -webkit-mask-image: linear-gradient(to right, #000 0 3px, transparent 3px 6px, #000 6px);
-  mask-image: linear-gradient(to right, #000 0 3px, transparent 3px 6px, #000 6px);
+  -webkit-mask:
+    var(--blip-mask) left top / 3px 100% no-repeat,
+    linear-gradient(#000, #000) right top / calc(100% - 6px) 100% no-repeat;
+  mask:
+    var(--blip-mask) left top / 3px 100% no-repeat,
+    linear-gradient(#000, #000) right top / calc(100% - 6px) 100% no-repeat;
 }
 .chip.banner.cut-r {
-  -webkit-mask-image: linear-gradient(to left, #000 0 3px, transparent 3px 6px, #000 6px);
-  mask-image: linear-gradient(to left, #000 0 3px, transparent 3px 6px, #000 6px);
+  -webkit-mask:
+    var(--blip-mask) right top / 3px 100% no-repeat,
+    linear-gradient(#000, #000) left top / calc(100% - 6px) 100% no-repeat;
+  mask:
+    var(--blip-mask) right top / 3px 100% no-repeat,
+    linear-gradient(#000, #000) left top / calc(100% - 6px) 100% no-repeat;
 }
 .chip.banner.cut-l.cut-r {
-  -webkit-mask-image: linear-gradient(
-    to right,
-    #000 0 3px,
-    transparent 3px 6px,
-    #000 6px calc(100% - 6px),
-    transparent calc(100% - 6px) calc(100% - 3px),
-    #000 calc(100% - 3px)
-  );
-  mask-image: linear-gradient(
-    to right,
-    #000 0 3px,
-    transparent 3px 6px,
-    #000 6px calc(100% - 6px),
-    transparent calc(100% - 6px) calc(100% - 3px),
-    #000 calc(100% - 3px)
-  );
+  -webkit-mask:
+    var(--blip-mask) left top / 3px 100% no-repeat,
+    var(--blip-mask) right top / 3px 100% no-repeat,
+    linear-gradient(#000, #000) center top / calc(100% - 12px) 100% no-repeat;
+  mask:
+    var(--blip-mask) left top / 3px 100% no-repeat,
+    var(--blip-mask) right top / 3px 100% no-repeat,
+    linear-gradient(#000, #000) center top / calc(100% - 12px) 100% no-repeat;
 }
 
 /* The event being dragged (drawn at its preview position). */
@@ -781,6 +847,9 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
   position: relative;
   width: var(--hr-gutter);
   flex: none;
+  /* Above #wk-sticky (8), so the pushed-aside month pill slides out of sight
+     behind the gutter instead of over it — the mirror of #dow-row's handoff. */
+  z-index: 9;
   overflow: hidden;
   background: var(--bg);
   border-right: 1px solid var(--line);
@@ -809,7 +878,8 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
   right: 0;
   height: var(--wk-head-h);
   z-index: 2;
-  background: var(--bg);
+  /* Top strip matches .wk-bar so the week rule reads straight through. */
+  background: linear-gradient(var(--bg-alt) 0 var(--wk-bar-h), var(--bg) var(--wk-bar-h));
   border-bottom: 1px solid var(--line);
 }
 
@@ -841,17 +911,24 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
   background: var(--bg);
   border-bottom: 1px solid var(--line);
 }
-.wk-tag {
-  position: absolute;
-  top: 3px;
-  left: 5px;
-  z-index: 1;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--fg-muted);
-  opacity: 0.75;
+/* A thin rule across the whole week, labelling it and capping it off. */
+.wk-bar {
+  height: var(--wk-bar-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-alt);
+  border-bottom: 1px solid var(--line);
   pointer-events: none;
+}
+.wk-bar-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .wk-days {
@@ -902,9 +979,12 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
   color: var(--accent);
 }
 
-/* All-day / multi-day band: the same spanning bars as the month view. */
+/* All-day / multi-day band: the same spanning bars as the month view. The
+   band runs a seam's width past its own week so a bar that carries on can be
+   drawn across the break instead of being clipped at it. */
 .wk-allday {
   position: relative;
+  width: calc(7 * var(--day-w) + var(--wk-gap));
   height: var(--wk-allday-h);
   border-top: 1px solid var(--line);
   overflow: hidden;
@@ -912,7 +992,7 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
 .chip.wk-band { height: 18px; }
 .wk-band-more {
   position: absolute;
-  right: 3px;
+  right: calc(var(--wk-gap) + 3px);
   bottom: 2px;
   border: none;
   border-radius: 4px;
@@ -955,6 +1035,16 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
   pointer-events: none;
 }
 .wk-ev > * { pointer-events: auto; }
+
+/* Wake / sleep: a faint rule straight across the week's seven days. */
+.wk-daymark {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid var(--daymark);
+  pointer-events: none;
+}
 
 /* A timed event: height from its duration, width shared with whatever it overlaps. */
 .wk-block {
@@ -1012,13 +1102,14 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
   background: #e5484d;
 }
 
-/* The seam between one week and the next. */
+/* The seam between one week and the next. It sits below .wk-head (z 5) so a
+   multi-day bar can be drawn over the break, and above the grid body. */
 .wk-seam {
   position: absolute;
   top: 0;
   bottom: 0;
   left: 100%;
-  z-index: 6;
+  z-index: 4;
   width: var(--wk-gap);
   background: var(--bg-alt);
   border-left: 1px solid var(--line-strong);
@@ -1026,24 +1117,35 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
   pointer-events: none;
 }
 
-/* Pinned month label — the horizontal mirror of #sticky-month. */
+/* Pinned month label — the horizontal mirror of #sticky-month. It rides in
+   the week bar at the very top of the viewport, above everything else. */
 #wk-sticky {
   position: absolute;
-  top: calc(var(--wk-head-h) + 8px);
-  left: calc(var(--hr-gutter) + 8px);
+  top: 1px;
+  left: calc(var(--hr-gutter) + 6px);
   z-index: 8;
   pointer-events: none;
 }
 #wk-sticky-label {
   background: var(--pill-bg);
   color: var(--pill-fg);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  padding: 2px 10px;
+  line-height: 14px;
+  padding: 1px 9px;
   border-radius: 999px;
   white-space: nowrap;
   will-change: transform;
 }
+
+/* Zoomed far out the columns are too narrow for the default type scale. */
+#weekview.dense .wk-dow { font-size: 9px; letter-spacing: 0.03em; }
+#weekview.dense .wk-dnum { font-size: 13px; }
+#weekview.dense .wk-dh.today .wk-dnum { width: 18px; height: 18px; }
+#weekview.dense .wk-dmon { font-size: 8.5px; right: 2px; }
+#weekview.dense .wk-block { padding: 1px 3px; font-size: 10px; }
+#weekview.dense .wk-btime { font-size: 9.5px; }
+#weekview.dense .chip.wk-band { font-size: 10px; padding: 0 3px; }
 
 /* Loading skeletons */
 .skel {

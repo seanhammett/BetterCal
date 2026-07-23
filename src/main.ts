@@ -69,6 +69,8 @@ const settings: Settings = {
   rowHeight: DEFAULT_ROW_H,
   dayWidth: DEFAULT_DAY_W,
   view: "month",
+  wakeMinutes: null,
+  sleepMinutes: null,
   sidebarCollapsed: false,
   timeZones: [],
   tempUnit: "auto",
@@ -270,6 +272,22 @@ async function commitDrag(ev: CalEvent, startDay: number, endDay: number): Promi
 
 /* ---------------- Settings persistence ---------------- */
 
+/** A stored wake/sleep time, or null if it was never set (or is nonsense). */
+function validMinutes(v: unknown): number | null {
+  return typeof v === "number" && v >= 0 && v < 1440 ? Math.round(v) : null;
+}
+
+/** Minutes from midnight ⇄ an <input type="time"> value. */
+function toTimeValue(mins: number | null): string {
+  if (mins === null) return "";
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(Math.floor(mins / 60))}:${p(mins % 60)}`;
+}
+function fromTimeValue(value: string): number | null {
+  const m = /^(\d{1,2}):(\d{2})/.exec(value);
+  return m ? validMinutes(Number(m[1]) * 60 + Number(m[2])) : null;
+}
+
 async function loadSettings(): Promise<void> {
   const data = await chrome.storage.sync.get("settings");
   const saved = data.settings as Partial<Settings> | undefined;
@@ -285,6 +303,8 @@ async function loadSettings(): Promise<void> {
       settings.dayWidth = Math.max(MIN_DAY_W, Math.min(MAX_DAY_W, saved.dayWidth));
     }
     if (saved.view === "month" || saved.view === "week") settings.view = saved.view;
+    settings.wakeMinutes = validMinutes(saved.wakeMinutes);
+    settings.sleepMinutes = validMinutes(saved.sleepMinutes);
     if (typeof saved.sidebarCollapsed === "boolean") {
       settings.sidebarCollapsed = saved.sidebarCollapsed;
     }
@@ -651,6 +671,9 @@ function applyView(view: ViewMode, anchor: Date): void {
   $(view === "week" ? "mini-slot-h" : "mini-slot-v").appendChild(minimap);
   miniYear = NaN;
 
+  // Wake / sleep only mean something against a time grid.
+  $("side-hours").hidden = view !== "week";
+
   // One zoom slider, two meanings: week-row height, or day-column width.
   if (view === "week") {
     scroller.hidden = true;
@@ -749,6 +772,7 @@ async function boot(): Promise<void> {
     weekStart: () => settings.weekStart,
     todayKey: () => todayKey,
     dayWidth: () => settings.dayWidth,
+    dayHours: () => ({ wake: settings.wakeMinutes, sleep: settings.sleepMinutes }),
     onEventClick: handleEventClick,
     onSlotClick: handleDayClick,
     onScroll: updateMinimap,
@@ -758,7 +782,7 @@ async function boot(): Promise<void> {
     for (const [idx, row] of mounted) {
       if (idx >= firstWeek && idx <= lastWeek) renderWeekContents(row, idx, ctx());
     }
-    weekView.rerender(firstWeek, lastWeek);
+    weekView.rerender();
     if (inWeekView()) weekView.layout(); // the all-day band may need more lanes
   };
   store.onError = (err) => {
@@ -814,6 +838,31 @@ async function boot(): Promise<void> {
     else applyRowHeight(value, true);
   });
   $("zoom-reset").addEventListener("click", resetZoom);
+
+  // Wake / sleep lines across the week grid.
+  const wakeInput = $<HTMLInputElement>("wake-time");
+  const sleepInput = $<HTMLInputElement>("sleep-time");
+  wakeInput.value = toTimeValue(settings.wakeMinutes);
+  sleepInput.value = toTimeValue(settings.sleepMinutes);
+  const applyDayHours = (): void => {
+    saveSettings();
+    weekView.rerender();
+  };
+  wakeInput.addEventListener("change", () => {
+    settings.wakeMinutes = fromTimeValue(wakeInput.value);
+    applyDayHours();
+  });
+  sleepInput.addEventListener("change", () => {
+    settings.sleepMinutes = fromTimeValue(sleepInput.value);
+    applyDayHours();
+  });
+  $("hours-clear").addEventListener("click", () => {
+    settings.wakeMinutes = null;
+    settings.sleepMinutes = null;
+    wakeInput.value = "";
+    sleepInput.value = "";
+    applyDayHours();
+  });
 
   // Sidebar collapse (either toggle button)
   $("btn-sidebar").addEventListener("click", () => applyCollapsed(!settings.sidebarCollapsed));

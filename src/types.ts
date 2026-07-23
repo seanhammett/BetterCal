@@ -12,6 +12,9 @@ export interface Settings {
   /** Day-column width in px (week-view zoom). */
   dayWidth: number;
   view: ViewMode;
+  /** Wake / sleep time as minutes from midnight; null hides that week-grid line. */
+  wakeMinutes: number | null;
+  sleepMinutes: number | null;
   sidebarCollapsed: boolean;
   /** Extra IANA time zones shown under the clock. */
   timeZones: string[];

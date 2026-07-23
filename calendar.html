@@ -61,6 +61,7 @@
           <div class="clock-row">
             <div class="clock-main">
               <div id="clock-time">--:--</div>
+              <div id="clock-dow"></div>
               <div id="clock-date"></div>
             </div>
           </div>
@@ -73,6 +74,16 @@
           <div id="weather-sun" hidden>
             <span id="sunrise"></span>
             <span id="sunset"></span>
+          </div>
+        </div>
+        <div id="side-hours" class="side-section side-hours" hidden>
+          <div class="side-label">
+            <span>Day hours</span>
+            <button id="hours-clear" class="link-btn" title="Remove the wake / sleep lines">clear</button>
+          </div>
+          <div class="hours-row">
+            <label class="hours-field"><span>Wake</span><input id="wake-time" type="time" /></label>
+            <label class="hours-field"><span>Sleep</span><input id="sleep-time" type="time" /></label>
           </div>
         </div>
         <div class="side-section side-zoom">
