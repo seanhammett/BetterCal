@@ -17,11 +17,27 @@ import {
 import { type DragMode, buildDragPayload, dragDays } from "./drag.js";
 import { type Editor, initEditor } from "./editor.js";
 import { ConflictError, listCalendars, patchEvent } from "./gcal.js";
-import { DEFAULT_ROW_H, DOW_H, MAX_ROW_H, MIN_ROW_H } from "./layout.js";
+import {
+  DEFAULT_DAY_W,
+  DEFAULT_ROW_H,
+  DOW_H,
+  MAX_DAY_W,
+  MAX_ROW_H,
+  MIN_DAY_W,
+  MIN_ROW_H,
+} from "./layout.js";
 import { type DragPreview, renderWeekContents } from "./render.js";
 import { EventStore } from "./store.js";
 import { initClock, initWeather } from "./widgets.js";
-import { type CalEvent, type CalendarInfo, type Settings, type WeekStart, canWriteCalendar } from "./types.js";
+import {
+  type CalEvent,
+  type CalendarInfo,
+  type Settings,
+  type ViewMode,
+  type WeekStart,
+  canWriteCalendar,
+} from "./types.js";
+import { type WeekView, initWeekView } from "./weekview.js";
 
 /** Extra weeks kept mounted above/below the viewport. */
 const RENDER_BUFFER = 3;
@@ -39,6 +55,7 @@ const toast = $<HTMLElement>("toast");
 const stickyMonth = $<HTMLElement>("sticky-month-label");
 const sidebar = $<HTMLElement>("sidebar");
 const zoomInput = $<HTMLInputElement>("zoom");
+const minimap = $<HTMLElement>("minimap");
 const miniTrack = $<HTMLElement>("mini-track");
 const miniMonths = $<HTMLElement>("mini-months");
 const miniViewport = $<HTMLElement>("mini-viewport");
@@ -50,6 +67,8 @@ const settings: Settings = {
   weekStart: 0,
   selectedCalendarIds: null,
   rowHeight: DEFAULT_ROW_H,
+  dayWidth: DEFAULT_DAY_W,
+  view: "month",
   sidebarCollapsed: false,
   timeZones: [],
   tempUnit: "auto",
@@ -60,6 +79,9 @@ let todayKey = dayKey(new Date());
 let rowHeight = DEFAULT_ROW_H;
 let miniYear = NaN;
 let editor: Editor;
+let weekView: WeekView;
+
+const inWeekView = (): boolean => settings.view === "week";
 
 const ctx = () => ({
   store,
@@ -91,14 +113,14 @@ function handleEventClick(ev: CalEvent): void {
   editor.openEdit(ev);
 }
 
-function handleDayClick(date: Date): void {
+function handleDayClick(date: Date, startMinutes?: number): void {
   const writable = store.calendars.filter(canWriteCalendar);
   if (writable.length === 0) return;
   const preferred =
     writable.find((c) => c.primary && store.selectedIds.has(c.id)) ??
     writable.find((c) => store.selectedIds.has(c.id)) ??
     writable[0];
-  editor.openCreate(date, preferred.id);
+  editor.openCreate(date, preferred.id, startMinutes);
 }
 
 function handleSaved(minDay: number, maxDay: number): void {
@@ -106,7 +128,8 @@ function handleSaved(minDay: number, maxDay: number): void {
   const lastW = weekIndexOf(dateFromDayNumber(maxDay), settings.weekStart);
   store.invalidateWeeks(firstW, lastW);
   rerenderMounted();
-  layout(); // ensureRange refetches the invalidated chunks that are in view
+  weekView.rerender();
+  activeLayout(); // ensureRange refetches the invalidated chunks that are in view
 }
 
 /* ---------------- Drag to move / resize events ---------------- */
@@ -258,6 +281,10 @@ async function loadSettings(): Promise<void> {
     if (typeof saved.rowHeight === "number") {
       settings.rowHeight = Math.max(MIN_ROW_H, Math.min(MAX_ROW_H, saved.rowHeight));
     }
+    if (typeof saved.dayWidth === "number") {
+      settings.dayWidth = Math.max(MIN_DAY_W, Math.min(MAX_DAY_W, saved.dayWidth));
+    }
+    if (saved.view === "month" || saved.view === "week") settings.view = saved.view;
     if (typeof saved.sidebarCollapsed === "boolean") {
       settings.sidebarCollapsed = saved.sidebarCollapsed;
     }
@@ -397,6 +424,32 @@ function scrollToWeek(weekIdx: number, smooth: boolean): void {
   });
 }
 
+/* ---------------- Active-view dispatch ---------------- */
+
+/** Re-run layout for whichever view is on screen. */
+function activeLayout(): void {
+  if (!weekView) return; // pre-boot (applyCollapsed runs before the views exist)
+  if (inWeekView()) weekView.layout();
+  else queueLayout();
+}
+
+function activeAnchorDate(): Date {
+  return inWeekView() ? weekView.anchorDate() : anchorDate();
+}
+
+function goToDate(date: Date, smooth: boolean): void {
+  if (inWeekView()) weekView.scrollToDate(date, smooth);
+  else scrollToWeek(weekIndexOf(date, settings.weekStart), smooth);
+}
+
+/** Inclusive day-number range on screen, in either view (drives the minimap). */
+function visibleDayRange(): [number, number] {
+  if (inWeekView()) return weekView.visibleDayRange();
+  const [firstW, lastW] = visibleWeekRange();
+  const firstDay = dayNumber(weekStartDate(firstW, settings.weekStart));
+  return [firstDay, dayNumber(weekStartDate(lastW, settings.weekStart)) + 6];
+}
+
 function buildDowHeader(): void {
   dowRow.textContent = "";
   const start = weekStartDate(weekIndexOf(new Date(), settings.weekStart), settings.weekStart);
@@ -433,10 +486,34 @@ function applyCollapsed(collapsed: boolean): void {
   const btn = $("btn-sidebar");
   btn.textContent = collapsed ? "▸" : "◂";
   btn.title = collapsed ? "Expand sidebar" : "Collapse sidebar";
-  queueLayout();
+  activeLayout();
 }
 
 /* ---------------- Year minimap ---------------- */
+
+/**
+ * The rail runs down the right edge in month view and along the bottom in week
+ * view, matching whichever axis the calendar scrolls on. Every measurement is a
+ * fraction of the year, so only the axis the fractions are written to changes.
+ */
+function miniHorizontal(): boolean {
+  return inWeekView();
+}
+
+/** Place a fractional [start, start+size) band along the rail's own axis. */
+function placeOnRail(el: HTMLElement, start: number, size: number): void {
+  if (miniHorizontal()) {
+    el.style.left = `${start * 100}%`;
+    el.style.width = `${size * 100}%`;
+    el.style.top = "";
+    el.style.height = "";
+  } else {
+    el.style.top = `${start * 100}%`;
+    el.style.height = `${size * 100}%`;
+    el.style.left = "";
+    el.style.width = "";
+  }
+}
 
 function buildMinimap(year: number): void {
   miniYear = year;
@@ -444,50 +521,57 @@ function buildMinimap(year: number): void {
   miniMonths.textContent = "";
   const yearStart = dayNumber(new Date(year, 0, 1));
   const yearDays = dayNumber(new Date(year + 1, 0, 1)) - yearStart;
+  const horiz = miniHorizontal();
   for (let m = 0; m < 12; m++) {
     const days = dayNumber(new Date(year, m + 1, 1)) - dayNumber(new Date(year, m, 1));
     const block = document.createElement("div");
     block.className = `mini-month${m % 2 ? " alt" : ""}`;
-    block.style.height = `${(days / yearDays) * 100}%`;
+    block.style[horiz ? "width" : "height"] = `${(days / yearDays) * 100}%`;
     block.textContent = fmtMonthShort(new Date(year, m, 1));
     miniMonths.appendChild(block);
   }
 }
 
 function updateMinimap(): void {
-  const year = anchorDate().getFullYear();
+  const year = activeAnchorDate().getFullYear();
   if (year !== miniYear) buildMinimap(year);
 
   const yearStart = dayNumber(new Date(year, 0, 1));
   const yearDays = dayNumber(new Date(year + 1, 0, 1)) - yearStart;
-  const [firstW, lastW] = visibleWeekRange();
-  const firstDay = dayNumber(weekStartDate(firstW, settings.weekStart));
-  const lastDay = dayNumber(weekStartDate(lastW, settings.weekStart)) + 7;
+  const [firstDay, lastDay] = visibleDayRange();
 
   const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
-  const top = clamp01((firstDay - yearStart) / yearDays);
-  const bottom = clamp01((lastDay - yearStart) / yearDays);
-  miniViewport.style.top = `${top * 100}%`;
-  miniViewport.style.height = `${(bottom - top) * 100}%`;
+  const from = clamp01((firstDay - yearStart) / yearDays);
+  const to = clamp01((lastDay + 1 - yearStart) / yearDays);
+  placeOnRail(miniViewport, from, to - from);
 
   const now = new Date();
   if (now.getFullYear() === year) {
     miniToday.hidden = false;
-    miniToday.style.top = `${((dayNumber(now) - yearStart) / yearDays) * 100}%`;
+    const at = `${((dayNumber(now) - yearStart) / yearDays) * 100}%`;
+    if (miniHorizontal()) {
+      miniToday.style.left = at;
+      miniToday.style.top = "";
+    } else {
+      miniToday.style.top = at;
+      miniToday.style.left = "";
+    }
   } else {
     miniToday.hidden = true;
   }
 }
 
-function miniJump(clientY: number, smooth: boolean): void {
+function miniJump(clientX: number, clientY: number, smooth: boolean): void {
   if (Number.isNaN(miniYear)) return;
   const rect = miniTrack.getBoundingClientRect();
-  if (rect.height === 0) return;
-  const frac = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+  const horiz = miniHorizontal();
+  const size = horiz ? rect.width : rect.height;
+  if (size === 0) return;
+  const frac = Math.max(0, Math.min(1, ((horiz ? clientX - rect.left : clientY - rect.top)) / size));
   const yearStart = dayNumber(new Date(miniYear, 0, 1));
   const yearDays = dayNumber(new Date(miniYear + 1, 0, 1)) - yearStart;
   const day = Math.round(yearStart + frac * yearDays);
-  scrollToWeek(weekIndexOf(dateFromDayNumber(day), settings.weekStart), smooth);
+  goToDate(dateFromDayNumber(day), smooth);
 }
 
 /* ---------------- Toast ---------------- */
@@ -517,7 +601,8 @@ function buildCalendarList(): void {
       saveSettings();
       store.reset();
       rerenderMounted();
-      layout();
+      weekView.rerender();
+      activeLayout();
     });
     const dot = document.createElement("span");
     dot.className = "dot";
@@ -533,7 +618,7 @@ function buildCalendarList(): void {
 function changeWeekStart(ws: WeekStart): void {
   if (ws === settings.weekStart) return;
   // Keep the user anchored on the same date across the re-indexing.
-  const keepDate = anchorDate();
+  const keepDate = activeAnchorDate();
 
   settings.weekStart = ws;
   saveSettings();
@@ -541,8 +626,65 @@ function changeWeekStart(ws: WeekStart): void {
   store.reset();
   buildDowHeader();
   unmountAll();
-  scrollToWeek(weekIndexOf(keepDate, ws), false);
-  layout();
+  weekView.reset();
+  applyView(settings.view, keepDate);
+}
+
+/* ---------------- View switching ---------------- */
+
+function applyView(view: ViewMode, anchor: Date): void {
+  settings.view = view;
+  saveSettings();
+
+  for (const [id, mode] of [
+    ["tab-month", "month"],
+    ["tab-week", "week"],
+  ] as const) {
+    const btn = $(id);
+    btn.classList.toggle("is-active", view === mode);
+    btn.setAttribute("aria-selected", String(view === mode));
+  }
+
+  // The rail follows the axis the calendar scrolls on, so it has to move
+  // between its two slots and be rebuilt along the other dimension.
+  minimap.classList.toggle("horizontal", view === "week");
+  $(view === "week" ? "mini-slot-h" : "mini-slot-v").appendChild(minimap);
+  miniYear = NaN;
+
+  // One zoom slider, two meanings: week-row height, or day-column width.
+  if (view === "week") {
+    scroller.hidden = true;
+    zoomInput.min = String(MIN_DAY_W);
+    zoomInput.max = String(MAX_DAY_W);
+    zoomInput.value = String(settings.dayWidth);
+    weekView.activate(anchor);
+  } else {
+    weekView.hide();
+    scroller.hidden = false;
+    zoomInput.min = String(MIN_ROW_H);
+    zoomInput.max = String(MAX_ROW_H);
+    zoomInput.value = String(rowHeight);
+    scrollToWeek(weekIndexOf(anchor, settings.weekStart), false);
+    layout();
+  }
+}
+
+function switchView(view: ViewMode): void {
+  if (view === settings.view) return;
+  applyView(view, activeAnchorDate());
+}
+
+function applyDayWidth(width: number): void {
+  settings.dayWidth = Math.max(MIN_DAY_W, Math.min(MAX_DAY_W, Math.round(width)));
+  saveSettings();
+  weekView.applyDayWidth(settings.dayWidth, true);
+}
+
+function resetZoom(): void {
+  const value = inWeekView() ? DEFAULT_DAY_W : DEFAULT_ROW_H;
+  zoomInput.value = String(value);
+  if (inWeekView()) applyDayWidth(value);
+  else applyRowHeight(value, true);
 }
 
 /* ---------------- Boot ---------------- */
@@ -579,9 +721,9 @@ async function start(): Promise<void> {
 
     showScreen("calendar");
     unmountAll();
+    weekView.reset();
     miniYear = NaN;
-    scrollToWeek(weekIndexOf(new Date(), settings.weekStart), false);
-    layout();
+    applyView(settings.view, new Date());
   } catch (err) {
     if (err instanceof AuthRequiredError) {
       showScreen("signin");
@@ -602,10 +744,22 @@ async function boot(): Promise<void> {
   zoomInput.value = String(rowHeight);
   applyCollapsed(settings.sidebarCollapsed);
 
+  weekView = initWeekView({
+    store,
+    weekStart: () => settings.weekStart,
+    todayKey: () => todayKey,
+    dayWidth: () => settings.dayWidth,
+    onEventClick: handleEventClick,
+    onSlotClick: handleDayClick,
+    onScroll: updateMinimap,
+  });
+
   store.onUpdate = (firstWeek, lastWeek) => {
     for (const [idx, row] of mounted) {
       if (idx >= firstWeek && idx <= lastWeek) renderWeekContents(row, idx, ctx());
     }
+    weekView.rerender(firstWeek, lastWeek);
+    if (inWeekView()) weekView.layout(); // the all-day band may need more lanes
   };
   store.onError = (err) => {
     if (err instanceof AuthRequiredError) {
@@ -618,7 +772,10 @@ async function boot(): Promise<void> {
   };
 
   scroller.addEventListener("scroll", queueLayout);
-  window.addEventListener("resize", queueLayout);
+  window.addEventListener("resize", activeLayout);
+
+  $("tab-month").addEventListener("click", () => switchView("month"));
+  $("tab-week").addEventListener("click", () => switchView("week"));
 
   // Event drag: move timed chips between days, resize bars by their end dots.
   window.addEventListener("pointermove", onDragMove);
@@ -635,9 +792,7 @@ async function boot(): Promise<void> {
     if (document.visibilityState === "hidden" && saveTimer !== undefined) flushSettings();
   });
 
-  $("btn-today").addEventListener("click", () =>
-    scrollToWeek(weekIndexOf(new Date(), settings.weekStart), true),
-  );
+  $("btn-today").addEventListener("click", () => goToDate(new Date(), true));
 
   const dateJump = $<HTMLInputElement>("date-jump");
   dateJump.addEventListener("click", () => {
@@ -649,15 +804,16 @@ async function boot(): Promise<void> {
   });
   dateJump.addEventListener("change", () => {
     if (!dateJump.value) return;
-    scrollToWeek(weekIndexOf(parseDateOnly(dateJump.value), settings.weekStart), false);
+    goToDate(parseDateOnly(dateJump.value), false);
   });
 
-  // Zoom
-  zoomInput.addEventListener("input", () => applyRowHeight(Number(zoomInput.value), true));
-  $("zoom-reset").addEventListener("click", () => {
-    zoomInput.value = String(DEFAULT_ROW_H);
-    applyRowHeight(DEFAULT_ROW_H, true);
+  // Zoom — week-row height in month view, day-column width in week view.
+  zoomInput.addEventListener("input", () => {
+    const value = Number(zoomInput.value);
+    if (inWeekView()) applyDayWidth(value);
+    else applyRowHeight(value, true);
   });
+  $("zoom-reset").addEventListener("click", resetZoom);
 
   // Sidebar collapse (either toggle button)
   $("btn-sidebar").addEventListener("click", () => applyCollapsed(!settings.sidebarCollapsed));
@@ -667,11 +823,11 @@ async function boot(): Promise<void> {
   let miniDragging = false;
   miniTrack.addEventListener("mousedown", (e) => {
     miniDragging = true;
-    miniJump(e.clientY, false);
+    miniJump(e.clientX, e.clientY, false);
     e.preventDefault();
   });
   window.addEventListener("mousemove", (e) => {
-    if (miniDragging) miniJump(e.clientY, false);
+    if (miniDragging) miniJump(e.clientX, e.clientY, false);
   });
   window.addEventListener("mouseup", () => {
     miniDragging = false;
@@ -727,13 +883,17 @@ async function boot(): Promise<void> {
     toast.hidden = true;
   });
 
-  // Roll the "today" highlight over at midnight.
+  // Roll the "today" highlight over at midnight; nudge the week grid's
+  // current-time line along on every tick.
   setInterval(() => {
     const key = dayKey(new Date());
     if (key !== todayKey) {
       todayKey = key;
       rerenderMounted();
+      weekView.rerender();
       updateMinimap();
+    } else {
+      weekView.tick();
     }
   }, 60_000);
 

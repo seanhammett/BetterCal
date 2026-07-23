@@ -42,6 +42,12 @@
         <button id="btn-sidebar" title="Collapse sidebar">◂</button>
       </div>
       <div class="side-body">
+        <div class="side-section side-tabs">
+          <div class="seg" role="tablist" aria-label="Calendar view">
+            <button id="tab-month" class="seg-btn is-active" type="button" role="tab" aria-selected="true">Month</button>
+            <button id="tab-week" class="seg-btn" type="button" role="tab" aria-selected="false">Week</button>
+          </div>
+        </div>
         <div class="side-section side-actions">
           <button id="btn-today" class="btn small" title="Jump to today">Today</button>
           <label class="btn small date-jump" title="Jump to a date">
@@ -79,11 +85,30 @@
       </div>
       <button id="btn-sidebar-expand" title="Show tools">▸</button>
     </aside>
-    <main id="scroller">
-      <div id="dow-row"></div>
-      <div id="sticky-month"><div id="sticky-month-label"></div></div>
-      <div id="sizer"></div>
-    </main>
+    <div id="view-col">
+      <div id="view-main">
+        <main id="scroller">
+          <div id="dow-row"></div>
+          <div id="sticky-month"><div id="sticky-month-label"></div></div>
+          <div id="sizer"></div>
+        </main>
+
+        <div id="weekview" hidden>
+          <div id="wk-hours">
+            <div id="wk-hours-inner"></div>
+            <div id="wk-corner"></div>
+          </div>
+          <main id="wk-scroller">
+            <div id="wk-sizer"></div>
+          </main>
+          <div id="wk-sticky"><div id="wk-sticky-label"></div></div>
+        </div>
+
+        <div id="mini-slot-v"></div>
+      </div>
+      <div id="mini-slot-h"></div>
+    </div>
+
     <aside id="minimap">
       <div id="mini-year"></div>
       <div id="mini-track" title="Click or drag to jump">

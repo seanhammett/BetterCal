@@ -13,7 +13,8 @@ export interface EditorDeps {
 }
 
 export interface Editor {
-  openCreate(date: Date, defaultCalendarId: string): void;
+  /** `startMinutes` (from a week-grid slot click) overrides the default hour. */
+  openCreate(date: Date, defaultCalendarId: string, startMinutes?: number): void;
   openEdit(event: CalEvent): void;
 }
 
@@ -91,7 +92,7 @@ export function initEditor(deps: EditorDeps): Editor {
 
   /* ---------- open ---------- */
 
-  function openCreate(date: Date, defaultCalendarId: string): void {
+  function openCreate(date: Date, defaultCalendarId: string, startMinutes?: number): void {
     editing = null;
     heading.textContent = "New event";
     fillCalendars(defaultCalendarId);
@@ -100,14 +101,17 @@ export function initEditor(deps: EditorDeps): Editor {
     locationIn.value = "";
     descIn.value = "";
     alldayIn.checked = false;
-    // Default: a one-hour event at the next full hour (9:00 for other days).
+    // A one-hour event: at the clicked grid slot, else at the next full hour
+    // (9:00 for other days).
     const now = new Date();
     const sameDay = dayKey(date) === dayKey(now);
-    const startH = sameDay ? Math.min(now.getHours() + 1, 23) : 9;
+    const startMin =
+      startMinutes ?? (sameDay ? Math.min(now.getHours() + 1, 23) : 9) * 60;
+    const endMin = Math.min(startMin + 60, 23 * 60 + 59);
     startDate.value = dayKey(date);
     endDate.value = dayKey(date);
-    startTime.value = `${pad(startH)}:00`;
-    endTime.value = `${pad(Math.min(startH + 1, 23))}:${startH >= 23 ? "59" : "00"}`;
+    startTime.value = `${pad(Math.floor(startMin / 60))}:${pad(startMin % 60)}`;
+    endTime.value = `${pad(Math.floor(endMin / 60))}:${pad(endMin % 60)}`;
     deleteBtn.hidden = true;
     gcalLink.hidden = true;
     show();

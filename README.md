@@ -1,20 +1,24 @@
 # BetterCal — Infinite Week Calendar
 
-A Chrome extension (Manifest V3) that shows your Google Calendar as **one continuous, vertically scrolling column of weeks**. No month grids, no arbitrary breaks — scroll up for the past, down for the future, endlessly. A thin floating label marks where each new month begins so you never lose your bearings.
+A Chrome extension (Manifest V3) that shows your Google Calendar as **one continuous scroll of weeks**, in two flavours you can switch between:
+
+- **Month** — a vertically scrolling column of weeks. No month grids, no arbitrary breaks: scroll up for the past, down for the future, endlessly. A thin floating label marks where each new month begins so you never lose your bearings.
+- **Week** — the same idea turned on its side: a Google-style time grid that scrolls **horizontally** through weeks, continuously, with a clear seam between one week and the next. You can sit halfway across a boundary and see the end of one week beside the start of the next.
 
 ## Features
 
-- **Infinite vertical scroll of weeks** — virtualized rendering, so only the visible weeks (plus a buffer) exist in the DOM no matter how far you scroll.
+- **Infinite scroll of weeks** — virtualized rendering in both views, so only the visible weeks (plus a buffer) exist in the DOM no matter how far you scroll.
+- **Week grid with real time-of-day** — 7 day columns × 24 hour rows, events sized by their duration, overlapping events split side by side, an all-day banner band pinned above the grid, and a current-time line on today. Click any empty slot to create an event at that day and time.
 - **Lazy, cached event fetching** — events load in 6-week chunks as you scroll into new date ranges; already-fetched ranges are never refetched.
 - **Continuous multi-day events** — all-day and multi-day events render as single bars spanning their days (packed into lanes), the way Google Calendar does it; timed events stack in their day column below.
 - **Today anchor** — opens scrolled to the current week with today highlighted; a **Today** button jumps back anytime.
 - **Jump to any date** — a date picker scrolls you straight to that week.
-- **Year minimap** — an always-visible VSCode-style overview rail on the right; the highlighted window tracks your scroll position, and you can click or drag to jump anywhere in the year.
-- **Collapsible tool sidebar** — a left sidebar with a **zoom** slider (week-row height) and the **calendar show/hide** list; collapses to reclaim width.
-- **Week numbers & weekend shading** — a small ISO week number in the left gutter, and weekends tinted distinctly from weekdays.
+- **Year minimap** — an always-visible VSCode-style overview rail that follows the axis you scroll on: down the right edge in Month view, along the bottom in Week view. The highlighted window tracks your scroll position, and you can click or drag to jump anywhere in the year.
+- **Collapsible tool sidebar** — a left sidebar with the **Month / Week** tabs, a **zoom** slider (week-row height in Month view, day-column width in Week view) and the **calendar show/hide** list; collapses to reclaim width.
+- **Week numbers & weekend shading** — a small ISO week number in the left gutter (a `W30` tag in Week view), and weekends tinted distinctly from weekdays.
 - **Configurable week start** — Sunday or Monday (in ⚙).
 - **Event editing** — click an empty day cell to create an event, click an event to edit or delete it (title, calendar, all-day or timed, multi-day, location, description). Recurring events and read-only calendars open in Google Calendar instead; "+N more" opens that day's view.
-- **Drag to reschedule** — drag a timed event to another day (time of day is kept), or grab the detached blip at either end of an all-day bar to change its start or end. Esc cancels a drag in progress.
+- **Drag to reschedule** — in Month view, drag a timed event to another day (time of day is kept), or grab the detached blip at either end of an all-day bar to change its start or end. Esc cancels a drag in progress. *(Week view is click-to-edit only for now — dragging there would mean changing the time of day, not just the day.)*
 - Light & dark theme (follows the system), loading skeletons, and error toasts with retry.
 - OAuth scopes: `calendar.events`, `calendar.calendars`, `calendar.calendarlist` (read/write — editing support is being built; see `docs/EDITING_PLAN.md`). No data leaves your browser.
 

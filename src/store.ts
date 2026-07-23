@@ -14,6 +14,18 @@ import type { CalEvent, CalendarInfo, GApiEvent, GApiEventTime, WeekStart } from
 export type ChunkState = "loading" | "loaded" | "error";
 
 /**
+ * End-of-day minutes for a single-day timed event. An event ending exactly at
+ * midnight lands on 0 for the *next* day, so it is normalised to 1440 — the
+ * week grid needs a height, not a wrap-around.
+ */
+function minutesOfDayEnd(rawEnd: GApiEventTime, startMinutes: number): number {
+  if (!rawEnd.dateTime) return startMinutes;
+  const en = new Date(rawEnd.dateTime);
+  const mins = en.getHours() * 60 + en.getMinutes();
+  return mins <= startMinutes ? 1440 : mins;
+}
+
+/**
  * Caches events keyed by week index, fetched lazily in aligned multi-week
  * chunks so scrolling never refetches a range it has already seen. A multi-day
  * event is stored in every week it touches (clamped to its chunk) so each week
@@ -103,9 +115,11 @@ export class EventStore {
     if (!ev.banner && rawStart.dateTime) {
       const st = new Date(rawStart.dateTime);
       ev.startMinutes = st.getHours() * 60 + st.getMinutes();
+      ev.endMinutes = minutesOfDayEnd(rawEnd, ev.startMinutes);
       ev.timeLabel = fmtTime(st);
     } else {
       ev.startMinutes = -1;
+      ev.endMinutes = -1;
       ev.timeLabel = "";
     }
 
@@ -209,6 +223,9 @@ export class EventStore {
       endDay,
       timeLabel: !banner && startTime ? fmtTime(startTime) : "",
       startMinutes: banner ? -1 : startTime!.getHours() * 60 + startTime!.getMinutes(),
+      endMinutes: banner
+        ? -1
+        : minutesOfDayEnd(ev.end, startTime!.getHours() * 60 + startTime!.getMinutes()),
       etag: ev.etag,
       recurringEventId: ev.recurringEventId,
       description: ev.description,

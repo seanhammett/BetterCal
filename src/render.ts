@@ -41,7 +41,7 @@ function isDragged(e: CalEvent, ctx: RenderCtx): boolean {
 }
 
 /** Black or white text depending on the chip's background luminance. */
-function contrastText(hex: string): string {
+export function contrastText(hex: string): string {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex);
   if (!m) return "#fff";
   const v = parseInt(m[1], 16);
@@ -51,7 +51,7 @@ function contrastText(hex: string): string {
   return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? "#1f2328" : "#ffffff";
 }
 
-function openDayInGoogleCalendar(d: Date): void {
+export function openDayInGoogleCalendar(d: Date): void {
   const url = `https://calendar.google.com/calendar/u/0/r/day/${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
   window.open(url, "_blank");
 }

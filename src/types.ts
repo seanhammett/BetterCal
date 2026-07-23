@@ -1,11 +1,17 @@
 export type WeekStart = 0 | 1; // 0 = Sunday, 1 = Monday
 
+/** Which tab is showing: the vertical month flow or the horizontal week grid. */
+export type ViewMode = "month" | "week";
+
 export interface Settings {
   weekStart: WeekStart;
   /** null until the user makes a choice; fall back to Google's "selected" flags. */
   selectedCalendarIds: string[] | null;
-  /** Week-row height in px (zoom). */
+  /** Week-row height in px (month-view zoom). */
   rowHeight: number;
+  /** Day-column width in px (week-view zoom). */
+  dayWidth: number;
+  view: ViewMode;
   sidebarCollapsed: boolean;
   /** Extra IANA time zones shown under the clock. */
   timeZones: string[];
@@ -46,6 +52,8 @@ export interface EventChip {
   timeLabel: string;
   /** Minutes from local midnight; -1 for banners (sort first). */
   startMinutes: number;
+  /** End minutes from local midnight on the same day; -1 for banners. */
+  endMinutes: number;
   /** For optimistic-concurrency writes (If-Match). */
   etag?: string;
   /** Present on instances of a recurring series — these need special edit handling. */

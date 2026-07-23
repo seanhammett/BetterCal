@@ -63,6 +63,7 @@ const monthYearFmt = new Intl.DateTimeFormat(undefined, { month: "long", year: "
 const monthShortFmt = new Intl.DateTimeFormat(undefined, { month: "short" });
 const dowFmt = new Intl.DateTimeFormat(undefined, { weekday: "short" });
 const timeFmt = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
+const hourFmt = new Intl.DateTimeFormat(undefined, { hour: "numeric" });
 
 export function fmtMonthYear(d: Date): string {
   return monthYearFmt.format(d);
@@ -92,4 +93,16 @@ export function fmtTime(d: Date): string {
   let s = timeFmt.format(d);
   if (/[AP]M/i.test(s)) s = s.replace(":00", "");
   return s.replace(/\s?([AP]M)/i, (m) => m.trim().toLowerCase());
+}
+
+/** Hour-gutter label for hour 0–23: "9am" / "13" depending on the locale. */
+export function fmtHour(hour: number): string {
+  const s = hourFmt.format(new Date(2000, 0, 1, hour));
+  return s.replace(/\s?([AP]M)/i, (m) => m.trim().toLowerCase());
+}
+
+/** Minutes from local midnight → "9:30am" (matches chip time labels). */
+export function fmtMinutes(mins: number): string {
+  const m = Math.max(0, Math.min(1439, Math.round(mins)));
+  return fmtTime(new Date(2000, 0, 1, Math.floor(m / 60), m % 60));
 }
