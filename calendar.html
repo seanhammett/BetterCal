@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>BetterCal</title>
+  <title>nonstop</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -30,7 +30,7 @@
   <div id="body-row" hidden>
     <aside id="sidebar">
       <div class="side-head">
-        <span class="side-brand">BetterCal</span>
+        <span class="side-brand">nonstop</span>
         <button id="btn-sidebar" title="Collapse sidebar">◂</button>
       </div>
       <div class="side-body">
@@ -43,7 +43,7 @@
         <div class="side-section side-actions">
           <button id="btn-today" class="btn small" title="Jump to today">Today</button>
           <label class="btn small date-jump" title="Jump to a date">
-            <span>Jump…</span>
+            <span>Jump</span>
             <input id="date-jump" type="date" />
           </label>
           <button id="btn-calendars" class="btn small" title="Show/hide calendars">Cals</button>
@@ -58,7 +58,10 @@
             </div>
           </div>
           <div id="tz-list"></div>
-          <select id="tz-select" hidden></select>
+          <div id="tz-picker" hidden>
+            <input id="tz-search" type="text" placeholder="Search time zone…" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="tz-options" aria-expanded="true" />
+            <div id="tz-options" role="listbox"></div>
+          </div>
           <button id="btn-tz-add" class="link-btn">+ time zone</button>
         </div>
         <div id="side-hours" class="side-section side-hours" hidden>
@@ -85,7 +88,7 @@
       <div id="view-main">
         <main id="scroller">
           <div id="dow-row"></div>
-          <div id="sticky-month"><div id="sticky-month-label"></div></div>
+          <div id="sticky-month"></div>
           <div id="sizer"></div>
         </main>
 
@@ -97,7 +100,7 @@
           <main id="wk-scroller">
             <div id="wk-sizer"></div>
           </main>
-          <div id="wk-sticky"><div id="wk-sticky-label"></div></div>
+          <div id="wk-sticky"></div>
         </div>
 
         <div id="mini-slot-v"></div>
@@ -117,7 +120,7 @@
 
   <div id="signin" class="center-screen" hidden>
     <div class="card">
-      <h1>BetterCal</h1>
+      <h1>nonstop</h1>
       <p>One continuous, scrolling column of weeks — no month boundaries.</p>
       <button id="btn-signin" class="btn primary">Connect Google Calendar</button>
       <p id="signin-error" class="error-text" hidden></p>

@@ -44,6 +44,12 @@ const SLOT_SNAP = 30;
 /** Where the grid opens vertically, so the working day is on screen. */
 const OPEN_AT_HOUR = 7;
 /**
+ * Resting inset of a docked month pill from the grid's left edge (matches
+ * #wk-sticky's `left: … + 6px`). A pill rides in with its column and clamps here
+ * once it reaches the edge, until the next month's pill shoves it back off.
+ */
+const STICKY_INSET = 6;
+/**
  * Weeks of history folded into the all-day lane assignment. A bar's lane
  * depends on the bars that started before it, which may have ended weeks ago
  * and be off screen — this is how far back that chain is followed.
@@ -93,9 +99,11 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
   const scroller = $("wk-scroller");
   const sizer = $("wk-sizer");
   const hoursInner = $("wk-hours-inner");
-  const stickyLabel = $("wk-sticky-label");
+  const stickyOverlay = $("wk-sticky");
 
   const mounted = new Map<number, HTMLElement>();
+  /** Reusable pool of floating month labels, kept in #wk-sticky. */
+  const monthPills: HTMLElement[] = [];
   let dayWidth = deps.dayWidth();
   let bandLanes = 1;
   /** Cross-week all-day lane assignment, keyed by eventKey(). */
@@ -136,20 +144,24 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
     el.className = `wk-dh${weekend ? " weekend" : ""}`;
     if (dayKey(date) === todayKey) el.classList.add("today");
 
+    // Two centred lines — the weekday over the date, always abbreviated
+    // (WED / 7 AUG). A container query on the column width drops the month on
+    // very narrow columns, leaving WED / 7, so zooming never needs a re-render.
     const dow = document.createElement("div");
     dow.className = "wk-dow";
     dow.textContent = fmtDow(date);
-    const num = document.createElement("div");
+
+    const dateLine = document.createElement("div");
+    dateLine.className = "wk-date";
+    const num = document.createElement("span");
     num.className = "wk-dnum";
     num.textContent = String(date.getDate());
-    el.append(dow, num);
+    const mon = document.createElement("span");
+    mon.className = "wk-dmonth";
+    mon.textContent = fmtMonthShort(date);
+    dateLine.append(num, mon);
 
-    if (date.getDate() === 1) {
-      const mon = document.createElement("div");
-      mon.className = "wk-dmon";
-      mon.textContent = fmtMonthShort(date);
-      el.appendChild(mon);
-    }
+    el.append(dow, dateLine);
     return el;
   }
 
@@ -237,6 +249,20 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
     bar.appendChild(barLabel);
     head.appendChild(bar);
 
+    // A week spans seven days, so at most one 1st can fall inside it.
+    let monthStartCol = -1;
+    for (let i = 0; i < 7; i++) {
+      if (addDays(start, i).getDate() === 1) {
+        monthStartCol = i;
+        break;
+      }
+    }
+
+    // The month name is drawn by the floating pills in the #wk-sticky overlay
+    // (see positionMonthLabels), not here — so it persists across panel recycling
+    // and keeps a single deterministic position. Only the full-height divider
+    // further down still marks the boundary within the grid.
+
     const days = document.createElement("div");
     days.className = "wk-days";
     for (let i = 0; i < 7; i++) days.appendChild(buildDayHead(addDays(start, i), todayKey));
@@ -286,7 +312,6 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
       const col = document.createElement("div");
       col.className = `wk-col${weekend ? " weekend" : ""}`;
       if (dayKey(date) === todayKey) col.classList.add("today");
-      if (date.getDate() === 1) col.classList.add("month-start");
       col.addEventListener("click", (e) => {
         const y = e.clientY - col.getBoundingClientRect().top;
         const mins = Math.max(
@@ -352,6 +377,16 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
     const seam = document.createElement("div");
     seam.className = "wk-seam";
     panel.appendChild(seam);
+
+    // Full-height divider down the left edge of the first-of-month column,
+    // reaching over the pinned head to the very top. A panel child (not a head
+    // child) so it spans the whole grid, layered above the head to stay visible.
+    if (monthStartCol >= 0) {
+      const line = document.createElement("div");
+      line.className = "wk-month-line";
+      line.style.left = `calc(${monthStartCol} * var(--day-w))`;
+      panel.appendChild(line);
+    }
   }
 
   /* ---------------- Virtualization ---------------- */
@@ -470,36 +505,73 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
     );
 
     hoursInner.style.transform = `translateY(${-scroller.scrollTop}px)`;
-    updateStickyMonth();
+    positionMonthLabels();
     deps.onScroll();
   }
 
-  /**
-   * Pinned month label — the horizontal mirror of the month view's sticky
-   * pill. It names the month at the left edge of the grid and is pushed out of
-   * the way when the next month's first day scrolls up against it.
-   */
-  function updateStickyMonth(): void {
-    const ws = deps.weekStart();
-    const [firstDay] = visibleDayRange();
-    const current = dateFromDayNumber(firstDay);
-    stickyLabel.textContent = fmtMonthYear(current);
+  /** Content-x of the left edge of a month's first-day column. */
+  function monthStartX(first: Date, ws: WeekStart): number {
+    const w = weekIndexOf(first, ws);
+    const col = dayNumber(first) - dayNumber(weekStartDate(w, ws));
+    return (w - MIN_WEEK) * pitch() + col * dayWidth;
+  }
 
-    // Find the next month boundary within the label's reach.
-    let push = 0;
-    const leftPx = scroller.scrollLeft;
-    for (let d = firstDay + 1; d <= firstDay + 8; d++) {
-      const date = dateFromDayNumber(d);
-      if (date.getDate() !== 1) continue;
-      const w = weekIndexOf(date, ws);
-      const col = d - dayNumber(weekStartDate(w, ws));
-      const x = (w - MIN_WEEK) * pitch() + col * dayWidth;
-      const dist = x - leftPx;
-      const clearance = 8 + stickyLabel.offsetWidth;
-      if (dist < clearance) push = dist - clearance;
-      break;
+  /** A floating month label, lazily grown into a reusable pool. */
+  function pillAt(i: number): HTMLElement {
+    let p = monthPills[i];
+    if (!p) {
+      p = document.createElement("div");
+      p.className = "wk-month-pill";
+      stickyOverlay.appendChild(p);
+      monthPills[i] = p;
     }
-    stickyLabel.style.transform = `translateX(${push}px)`;
+    return p;
+  }
+
+  /**
+   * Position the floating month labels — the horizontal mirror of the month
+   * view's positionMonthLabels, one deterministic spot per pill so no second
+   * copy ever lags a frame behind. Each month's pill rides the left edge of its
+   * first-day column, docks at the resting inset once that column reaches the
+   * grid's left edge, then is shoved further left — under the hour gutter and off
+   * the grid — by the next month's pill. The pills live in this pinned overlay
+   * rather than a week panel, so the docked label survives panel recycling.
+   */
+  function positionMonthLabels(): void {
+    const ws = deps.weekStart();
+    const leftPx = scroller.scrollLeft;
+    const viewportW = scroller.clientWidth;
+    const restLeft = STICKY_INSET;
+    const daylight = 6; // px of clear space kept between two pills
+
+    // The months in play: the one in effect at the left edge (docked), then
+    // every later month whose first-day column has scrolled into view.
+    const cur = dateFromDayNumber(visibleDayRange()[0]);
+    const dates: Date[] = [];
+    let d = new Date(cur.getFullYear(), cur.getMonth(), 1);
+    while (weekIndexOf(d, ws) <= MAX_WEEK) {
+      if (weekIndexOf(d, ws) >= MIN_WEEK) {
+        if (monthStartX(d, ws) - leftPx > viewportW) break;
+        dates.push(d);
+      }
+      d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+    }
+
+    for (let i = 0; i < dates.length; i++) {
+      const pill = pillAt(i);
+      pill.textContent = fmtMonthYear(dates[i]);
+      pill.style.display = "";
+    }
+    for (let i = 0; i < dates.length; i++) {
+      const colX = monthStartX(dates[i], ws) - leftPx;
+      let x = Math.max(restLeft, colX); // dock at the resting inset
+      if (i + 1 < dates.length) {
+        const nextColX = monthStartX(dates[i + 1], ws) - leftPx;
+        x = Math.min(x, nextColX - monthPills[i].offsetWidth - daylight); // the next pill pushes this one
+      }
+      monthPills[i].style.transform = `translateX(${x - restLeft}px)`;
+    }
+    for (let i = dates.length; i < monthPills.length; i++) monthPills[i].style.display = "none";
   }
 
   let queued = false;

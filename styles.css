@@ -211,15 +211,20 @@ html, body {
 #sidebar.collapsed { width: var(--side-w-collapsed); }
 
 .side-head {
+  position: relative;
   height: 36px;
   flex: none;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 8px 0 12px;
+  justify-content: center;
+  padding: 0 8px;
   border-bottom: 1px solid var(--line);
 }
 #btn-sidebar {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
   appearance: none;
   border: none;
   background: transparent;
@@ -298,15 +303,22 @@ html, body {
   letter-spacing: -0.02em;
   white-space: nowrap;
 }
-#clock-time .clock-sec,
+/* Seconds sit at full size beside the hours and minutes, but in a light Plex
+   Sans weight and muted gray so the big reading still leads. */
+#clock-time .clock-sec {
+  color: var(--fg-muted);
+  font-weight: 300;
+}
 #clock-time .clock-ap {
   font-size: 0.55em;
   color: var(--fg-muted);
   font-weight: 500;
   letter-spacing: 0;
 }
+/* A touch of space on each side of every colon so the reading breathes. */
+#clock-time .clock-colon { margin: 0 0.06em; }
 #clock-dow {
-  font-size: 19px;
+  font-size: 22px;
   font-weight: 600;
   line-height: 1.15;
   margin-top: 7px;
@@ -315,7 +327,7 @@ html, body {
   text-overflow: ellipsis;
 }
 #clock-date {
-  font-size: 14.5px;
+  font-size: 16px;
   font-weight: 500;
   color: var(--fg-muted);
   line-height: 1.2;
@@ -353,7 +365,49 @@ html, body {
 }
 .tz-row:hover .tz-del { opacity: 1; }
 .tz-del:hover { color: var(--fg); }
-#tz-select { width: 100%; margin-top: 6px; font: inherit; font-size: 11px; }
+#tz-picker { margin-top: 6px; }
+#tz-search {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+}
+#tz-search:focus { outline: none; border-color: var(--accent); }
+#tz-options {
+  margin-top: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+#tz-options:empty { display: none; }
+.tz-opt {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 7px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.tz-opt:hover { background: var(--bg-alt); }
+.tz-opt-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tz-opt-off {
+  flex: none;
+  font-size: 10px;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
 #btn-tz-add { display: block; margin-top: 4px; }
 
 .side-body {
@@ -575,27 +629,16 @@ html, body {
   color: var(--fg-muted);
 }
 
-/* Pinned month label: a zero-height sticky slot right below the weekday
-   header, so it overlays the weeks without shifting the sizer's geometry. */
+/* Floating month labels: a zero-height sticky slot right below the weekday
+   header that overlays the weeks without shifting the sizer's geometry. It owns
+   every month pill (see positionMonthLabels), so they persist across row
+   recycling and slide under the header on handoff. */
 #sticky-month {
   position: sticky;
   top: var(--dow-h);
   height: 0;
   z-index: 9; /* below #dow-row (10) so the label slides under it on handoff */
   pointer-events: none;
-}
-#sticky-month-label {
-  position: absolute;
-  top: 6px;
-  left: calc(var(--wk-gutter) + 8px);
-  background: var(--pill-bg);
-  color: var(--pill-fg);
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 10px;
-  border-radius: 999px;
-  white-space: nowrap;
-  will-change: transform;
 }
 
 #sizer { position: relative; }
@@ -651,12 +694,16 @@ html, body {
 }
 .week-ev > * { pointer-events: auto; }
 
+/* Floating month label. One per month, positioned entirely from script (see
+   positionMonthLabels): it rides its week's top border, docks at the resting
+   line below the weekday header, and is pushed up by the next month's pill.
+   Horizontally it stays put — centred over the left-most day column (the lane
+   the date numbers sit in), via this `left` plus a translateX(-50%) in script. */
 .month-pill {
   position: absolute;
-  top: -1px;
-  transform: translateY(-50%);
+  top: 0;
+  left: calc(var(--wk-gutter) + (100% - var(--wk-gutter)) / 14);
   z-index: 2;
-  margin-left: 8px;
   background: var(--pill-bg);
   color: var(--pill-fg);
   font-size: 11px;
@@ -665,6 +712,7 @@ html, body {
   border-radius: 999px;
   pointer-events: none;
   white-space: nowrap;
+  will-change: transform;
 }
 
 .day {
@@ -698,8 +746,8 @@ html, body {
   border-radius: 50%;
 }
 .dmon {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--accent);
   text-transform: uppercase;
 }
@@ -827,6 +875,9 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
   min-width: 0;
   height: 100%;
   display: flex;
+  /* Clip at the left edge (which meets the sidebar): a month pill shoved past
+     the hour gutter disappears rather than sliding over the sidebar. */
+  overflow: hidden;
 }
 #weekview[hidden] { display: none; }
 
@@ -925,21 +976,38 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
 }
 .wk-dh {
   position: relative;
+  /* Queried by the day-name labels below, so they abbreviate as the column
+     narrows without the panel needing a re-render on zoom. */
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 2px;
   border-right: 1px solid var(--line);
   overflow: hidden;
 }
 .wk-dh.weekend { background: var(--weekend-bg); }
 .wk-dh.today { background: var(--today-bg); }
+
+/* Weekday line over the date line, both centred and always abbreviated
+   (WED / 7 AUG). The container query below drops the month on very narrow
+   columns, leaving WED / 7. */
 .wk-dow {
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--fg-muted);
+  white-space: nowrap;
+}
+.wk-date {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  line-height: 1.1;
+  white-space: nowrap;
 }
 .wk-dnum {
   font-size: 16px;
@@ -956,14 +1024,17 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
   background: var(--today-ring);
   color: var(--accent-fg);
 }
-.wk-dmon {
-  position: absolute;
-  top: 2px;
-  right: 4px;
-  font-size: 9.5px;
+.wk-dmonth {
+  font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
-  color: var(--accent);
+  letter-spacing: 0.03em;
+  color: var(--fg-muted);
+}
+
+/* Too narrow even for the short month — drop it, leaving just the day number. */
+@container (max-width: 56px) {
+  .wk-dmonth { display: none; }
 }
 
 /* All-day / multi-day band: the same spanning bars as the month view. The
@@ -1014,7 +1085,6 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
 }
 .wk-col.weekend { background-color: var(--weekend-bg); }
 .wk-col.today { background-color: var(--today-bg); }
-.wk-col.month-start { box-shadow: inset 2px 0 0 var(--accent); }
 
 .wk-ev {
   position: absolute;
@@ -1104,8 +1174,11 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
   pointer-events: none;
 }
 
-/* Pinned month label — the horizontal mirror of #sticky-month. It rides in
-   the week bar at the very top of the viewport, above everything else. */
+/* Floating month labels — the horizontal mirror of #sticky-month. A zero-size
+   pinned overlay at the grid's resting inset that owns every month pill (see
+   positionMonthLabels); it rides in the week bar at the top of the viewport.
+   z 8 keeps its pills below the hour gutter (z 9) so a pushed-aside pill slides
+   under that chrome, and #weekview's clip keeps it off the sidebar. */
 #wk-sticky {
   position: absolute;
   top: 1px;
@@ -1113,7 +1186,10 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
   z-index: 8;
   pointer-events: none;
 }
-#wk-sticky-label {
+.wk-month-pill {
+  position: absolute;
+  top: 0;
+  left: 0;
   background: var(--pill-bg);
   color: var(--pill-fg);
   font-size: 10px;
@@ -1122,14 +1198,28 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
   padding: 1px 9px;
   border-radius: 999px;
   white-space: nowrap;
+  pointer-events: none;
   will-change: transform;
+}
+
+/* Divider down the left edge of a month's first-day column, run the full grid
+   height and layered above the pinned head (z 5) so it reaches the very top.
+   --fg is near-white on dark, near-black on light — inverting with the theme. */
+.wk-month-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 6;
+  width: 2px;
+  background: var(--fg);
+  pointer-events: none;
 }
 
 /* Zoomed far out the columns are too narrow for the default type scale. */
 #weekview.dense .wk-dow { font-size: 9px; letter-spacing: 0.03em; }
 #weekview.dense .wk-dnum { font-size: 13px; }
 #weekview.dense .wk-dh.today .wk-dnum { width: 18px; height: 18px; }
-#weekview.dense .wk-dmon { font-size: 8.5px; right: 2px; }
+#weekview.dense .wk-dmonth { font-size: 9px; letter-spacing: 0.02em; }
 #weekview.dense .wk-block { padding: 1px 3px; font-size: 10px; }
 #weekview.dense .wk-btime { font-size: 9.5px; }
 #weekview.dense .chip.wk-band { font-size: 10px; padding: 0 3px; }

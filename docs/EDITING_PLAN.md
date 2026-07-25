@@ -1,6 +1,6 @@
 # Plan: Creating & editing events and calendars
 
-Today BetterCal is **read-only**. This plan turns it into a read/write client. The
+Today nonstop is **read-only**. This plan turns it into a read/write client. The
 work splits cleanly into a foundation change (OAuth + a write-capable API layer)
 and then feature phases layered on top. Recurring-event editing is deliberately
 pushed late — it's the single biggest source of complexity.

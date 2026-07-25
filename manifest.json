@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "BetterCal — Infinite Week Calendar",
+  "name": "nonstop",
   "version": "1.0.0",
   "description": "Your Google Calendar as one continuous, infinitely scrolling run of weeks. No ads, no tracking, no accounts.",
   "minimum_chrome_version": "116",
   "action": {
-    "default_title": "Open BetterCal",
+    "default_title": "Open nonstop",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png"

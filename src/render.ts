@@ -1,12 +1,4 @@
-import {
-  addDays,
-  dayKey,
-  dayNumber,
-  fmtMonthShort,
-  fmtMonthYear,
-  isoWeek,
-  weekStartDate,
-} from "./dates.js";
+import { addDays, dayKey, dayNumber, fmtMonthYear, isoWeek, weekStartDate } from "./dates.js";
 import type { DragMode } from "./drag.js";
 import { CHIP_H, type SpanBox, type TimedBox, layoutWeek, topForRow } from "./layout.js";
 import type { EventStore } from "./store.js";
@@ -173,6 +165,10 @@ export function renderWeekContents(row: HTMLElement, weekIdx: number, ctx: Rende
   wknum.textContent = String(isoWeek(addDays(start, weekStart === 0 ? 4 : 3)));
   row.appendChild(wknum);
 
+  // Month-boundary labels no longer live in the week rows — they're floating
+  // pills owned by the #sticky-month overlay (see positionMonthLabels), so they
+  // persist across row recycling and have a single deterministic position.
+
   // --- Background: 7 day cells (borders, shading, today, date numbers) ---
   const bg = document.createElement("div");
   bg.className = "week-bg";
@@ -191,23 +187,15 @@ export function renderWeekContents(row: HTMLElement, weekIdx: number, ctx: Rende
     num.textContent = String(date.getDate());
     head.appendChild(num);
     if (date.getDate() === 1) {
+      // "1 SEPTEMBER 2026": the day number sits in .dnum; this colored marker
+      // carries the full month and year beside it.
       const mon = document.createElement("span");
       mon.className = "dmon";
-      mon.textContent = fmtMonthShort(date);
+      mon.textContent = fmtMonthYear(date);
       head.appendChild(mon);
     }
     cell.appendChild(head);
     bg.appendChild(cell);
-
-    // A thin floating label marks where a new month begins, so the continuous
-    // flow of weeks is never segmented at month boundaries.
-    if (date.getDate() === 1) {
-      const pill = document.createElement("div");
-      pill.className = "month-pill";
-      pill.style.left = `calc(var(--wk-gutter) + ${i} / 7 * (100% - var(--wk-gutter)))`;
-      pill.textContent = fmtMonthYear(date);
-      row.appendChild(pill);
-    }
   }
   row.appendChild(bg);
 

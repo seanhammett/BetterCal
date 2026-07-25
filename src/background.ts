@@ -3,7 +3,7 @@
 // The existing tab is found with runtime.getContexts, which only ever sees this
 // extension's own pages — deliberately, instead of tabs.query({ url }), which
 // would need the "tabs" permission and so make Chrome warn at install that
-// BetterCal can "read your browsing history". It cannot, and shouldn't ask to.
+// nonstop can "read your browsing history". It cannot, and shouldn't ask to.
 chrome.action.onClicked.addListener(async () => {
   const url = chrome.runtime.getURL("calendar.html");
   const [existing] = await chrome.runtime.getContexts({

@@ -45,7 +45,7 @@ refuses to produce a zip if any of it fails.
 
 ## Privacy posture — what must stay true
 
-The listing claims BetterCal collects no data. These are the invariants behind
+The listing claims nonstop collects no data. These are the invariants behind
 that claim; breaking any one of them means the store disclosures have to change.
 
 - **Two network destinations, both Google:** `www.googleapis.com` (Calendar API)
@@ -60,7 +60,7 @@ that claim; breaking any one of them means the store disclosures have to change.
 - **No `tabs` permission.** The service worker finds its own tab with
   `chrome.runtime.getContexts`, which only ever sees this extension's pages.
   `chrome.tabs.query({ url })` would work too, but needs `tabs`, and Chrome
-  would then warn at install that BetterCal can "read your browsing history".
+  would then warn at install that nonstop can "read your browsing history".
 - **No fonts, scripts or images fetched from a CDN.** Everything is packaged.
 - **No analytics, telemetry or logging of any kind.**
 - **Events are never persisted** — `chrome.storage.sync` holds display

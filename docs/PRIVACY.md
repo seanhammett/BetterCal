@@ -1,18 +1,18 @@
-# BetterCal — Privacy Policy
+# nonstop — Privacy Policy
 
 **Last updated: 23 July 2026**
 
-BetterCal is a Chrome extension that displays your Google Calendar as a
+nonstop is a Chrome extension that displays your Google Calendar as a
 continuous scroll of weeks. It collects nothing.
 
-There is no BetterCal server. The developer operates no backend, no analytics
+There is no nonstop server. The developer operates no backend, no analytics
 endpoint and no log collection, and therefore never receives your calendar data
 or anything else about you. Your calendar data travels between your own browser
 and Google, and nowhere else.
 
-## What BetterCal accesses
+## What nonstop accesses
 
-With your permission, BetterCal reads and writes your Google Calendar through
+With your permission, nonstop reads and writes your Google Calendar through
 Google's Calendar API, using these OAuth scopes:
 
 | Scope | Why |
@@ -25,7 +25,7 @@ These requests are made from your browser directly to `www.googleapis.com`, and
 authorized with a token that Chrome issues for the Google account you are signed
 in to. The developer has no access to that token and no access to your calendar.
 
-## What BetterCal stores
+## What nonstop stores
 
 **On your device, in memory only:** the calendar events currently on screen, plus
 a cache of nearby weeks so scrolling doesn't refetch. This is discarded when the
@@ -45,9 +45,9 @@ enabled these preferences sync between your Chrome profiles via Google, under
 Google's privacy policy. They never reach the developer. No event titles, times,
 descriptions, locations or attendees are ever stored there.
 
-BetterCal does not use cookies, `localStorage`, `sessionStorage` or IndexedDB.
+nonstop does not use cookies, `localStorage`, `sessionStorage` or IndexedDB.
 
-## Where BetterCal connects
+## Where nonstop connects
 
 Two hosts, both Google, both enforced by the extension's Content Security Policy
 so that nothing else is even reachable from the extension's pages:
@@ -57,28 +57,28 @@ so that nothing else is even reachable from the extension's pages:
   revoke the access token so the grant is removed from your Google account
   rather than just cleared locally.
 
-BetterCal makes no other network requests. Fonts are bundled inside the
+nonstop makes no other network requests. Fonts are bundled inside the
 extension rather than fetched from a font CDN, so even loading the page contacts
 nobody.
 
-## What BetterCal does not do
+## What nonstop does not do
 
 - No analytics, telemetry, crash reporting or usage statistics.
 - No advertising, and no advertising or tracking identifiers.
 - No selling or transfer of data to anyone. There is nothing to sell.
-- No location access. BetterCal does not request the geolocation permission.
-- No access to your browsing history, tabs or the pages you visit. BetterCal
+- No location access. nonstop does not request the geolocation permission.
+- No access to your browsing history, tabs or the pages you visit. nonstop
   does not request the `tabs` permission and cannot see any page but its own.
 - No remotely hosted or remotely evaluated code. All code ships inside the
   package and is reviewable in the source repository.
 
 ## Children
 
-BetterCal is a general-audience utility and is not directed at children.
+nonstop is a general-audience utility and is not directed at children.
 
 ## Removing your data
 
-Click **⚙ → Sign out** in BetterCal. This revokes the OAuth token, so BetterCal's
+Click **⚙ → Sign out** in nonstop. This revokes the OAuth token, so nonstop's
 access to your calendar ends immediately. You can confirm or repeat this at
 [myaccount.google.com/permissions](https://myaccount.google.com/permissions).
 

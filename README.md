@@ -1,4 +1,4 @@
-# BetterCal — Infinite Week Calendar
+# nonstop — Infinite Week Calendar
 
 A Chrome extension (Manifest V3) that shows your Google Calendar as **one continuous scroll of weeks**, in two flavours you can switch between:
 
@@ -25,11 +25,11 @@ A Chrome extension (Manifest V3) that shows your Google Calendar as **one contin
 
 ## Privacy
 
-BetterCal collects nothing. There is no BetterCal server, so there is nowhere for your data to go even in principle.
+nonstop collects nothing. There is no nonstop server, so there is nowhere for your data to go even in principle.
 
 - **Two network destinations, both Google:** `www.googleapis.com` for the Calendar API, and `oauth2.googleapis.com` for revoking your token when you sign out. The manifest's `connect-src` pins those two hosts, so nothing else is reachable from the extension's pages.
 - **Two permissions:** `identity` (to get a token for the Google account Chrome is already signed in to) and `storage` (display preferences only — chosen calendars, week start, zoom, view, wake/sleep times, clock time zones, sidebar state). Your events are held in memory for the session and never written to disk.
-- **No location, no `tabs` permission, no analytics, no ads, no cookies, no remote code.** The service worker finds its own tab via `chrome.runtime.getContexts`, so Chrome never has to warn that BetterCal can read your browsing history — it can't.
+- **No location, no `tabs` permission, no analytics, no ads, no cookies, no remote code.** The service worker finds its own tab via `chrome.runtime.getContexts`, so Chrome never has to warn that nonstop can read your browsing history — it can't.
 - OAuth scopes: `calendar.events`, `calendar.calendars`, `calendar.calendarlist` (read/write, so events can be created and edited in place; see `docs/EDITING_PLAN.md`).
 
 Full policy: [`docs/PRIVACY.md`](docs/PRIVACY.md).
@@ -91,11 +91,11 @@ Edit `manifest.json` and replace the placeholder:
 }
 ```
 
-Then go back to `chrome://extensions` and click the **reload** (↻) icon on the BetterCal card.
+Then go back to `chrome://extensions` and click the **reload** (↻) icon on the nonstop card.
 
 ## 5. Use it
 
-Click the BetterCal toolbar icon — it opens (or refocuses) a full-page calendar tab. On first run, click **Connect Google Calendar** and approve the consent prompt. You'll land on the current week with today highlighted.
+Click the nonstop toolbar icon — it opens (or refocuses) a full-page calendar tab. On first run, click **Connect Google Calendar** and approve the consent prompt. You'll land on the current week with today highlighted.
 
 - Scroll up/down for earlier/later weeks — it just keeps going.
 - **Today** jumps back to the current week; **Jump…** opens a date picker.

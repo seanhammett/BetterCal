@@ -59,14 +59,17 @@ export function parseDateOnly(s: string): Date {
   return new Date(y, m - 1, d);
 }
 
-const monthYearFmt = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" });
+const monthLongFmt = new Intl.DateTimeFormat(undefined, { month: "long" });
 const monthShortFmt = new Intl.DateTimeFormat(undefined, { month: "short" });
 const dowFmt = new Intl.DateTimeFormat(undefined, { weekday: "short" });
 const timeFmt = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
 const hourFmt = new Intl.DateTimeFormat(undefined, { hour: "numeric" });
 
+/** Month-in-effect marker, e.g. "SEPTEMBER 2026". Labels the floating boundary
+ *  pill and the pinned sticky label; the first-of-month day cell reuses it with
+ *  the day number ahead of it to read "1 SEPTEMBER 2026". */
 export function fmtMonthYear(d: Date): string {
-  return monthYearFmt.format(d);
+  return `${monthLongFmt.format(d).toUpperCase()} ${d.getFullYear()}`;
 }
 
 export function fmtMonthShort(d: Date): string {

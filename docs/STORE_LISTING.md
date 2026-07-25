@@ -1,4 +1,4 @@
-# Publishing BetterCal — unlisted on the Chrome Web Store
+# Publishing nonstop — unlisted on the Chrome Web Store
 
 Everything needed to submit, in the order it has to happen. The two things that
 will bite if taken out of order are the **extension ID** (§2) and the **OAuth
@@ -55,7 +55,7 @@ between developing and packaging.
 
 | Field | Value / status |
 | --- | --- |
-| Name | BetterCal — Infinite Week Calendar (34 chars, limit 75) |
+| Name | nonstop — Infinite Week Calendar (34 chars, limit 75) |
 | Short description | Taken from `manifest.json` — 108 chars, limit 132 |
 | Category | Productivity → Workflow & Planning |
 | Language | English (UK) |
@@ -91,7 +91,7 @@ depends on your Google Cloud OAuth consent screen's publishing status:
 
 - Every user must be added individually under **Test users**, cap 100.
 - Everyone sees a "Google hasn't verified this app" interstitial and must click
-  through *Advanced → Go to BetterCal*.
+  through *Advanced → Go to nonstop*.
 - Grants issued in testing mode expire after seven days, so users get re-prompted
   roughly weekly.
 
@@ -114,7 +114,7 @@ questions.
 
 **Single purpose:**
 
-> BetterCal displays the user's own Google Calendar as one continuous,
+> nonstop displays the user's own Google Calendar as one continuous,
 > infinitely scrolling run of weeks, in a month view and a horizontal week grid,
 > and lets the user create and edit events in place. That is its only function.
 
@@ -131,7 +131,7 @@ questions.
 ship inside the package; the manifest's `content_security_policy` pins
 `script-src 'self'` and `connect-src` to the two Google hosts above.
 
-**Data usage — tick nothing.** BetterCal collects none of the listed categories.
+**Data usage — tick nothing.** nonstop collects none of the listed categories.
 The reasoning, if a reviewer asks: the extension *handles* calendar data but does
 not *collect* it — the data moves between the user's own browser and Google's
 API under the user's own OAuth grant, and there is no developer-operated server,

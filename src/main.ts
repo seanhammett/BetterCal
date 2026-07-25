@@ -52,7 +52,7 @@ const dowRow = $<HTMLElement>("dow-row");
 const panel = $<HTMLElement>("panel");
 const toast = $<HTMLElement>("toast");
 
-const stickyMonth = $<HTMLElement>("sticky-month-label");
+const monthOverlay = $<HTMLElement>("sticky-month");
 const sidebar = $<HTMLElement>("sidebar");
 const zoomInput = $<HTMLInputElement>("zoom");
 const minimap = $<HTMLElement>("minimap");
@@ -76,6 +76,8 @@ const settings: Settings = {
 };
 
 const mounted = new Map<number, HTMLElement>();
+/** Reusable pool of floating month labels, kept in #sticky-month. */
+const monthPills: HTMLElement[] = [];
 let todayKey = dayKey(new Date());
 let rowHeight = DEFAULT_ROW_H;
 let miniYear = NaN;
@@ -385,32 +387,81 @@ function layout(): void {
     Math.min(MAX_WEEK, hi + PREFETCH_WEEKS),
   );
 
-  updateStickyMonth();
+  positionMonthLabels();
   updateMinimap();
 }
 
-/**
- * Pinned month label. It shows the month "in effect" at the top edge (the
- * month of the last day of the week under the edge, so it flips exactly when
- * a boundary row's pill crosses the top). When the next month's pill row
- * approaches, the pinned label is pushed up out of the way — iOS-style.
- */
-function updateStickyMonth(): void {
-  const topPx = scroller.scrollTop;
-  const topWeek = Math.max(MIN_WEEK, Math.min(MAX_WEEK, MIN_WEEK + Math.floor(topPx / rowHeight)));
-  const current = addDays(weekStartDate(topWeek, settings.weekStart), 6);
-  stickyMonth.textContent = fmtMonthYear(current);
+/** Week index of the first week to *begin* in a date's month (start day 1–7). */
+function monthBoundaryWeek(d: Date): number {
+  const first = new Date(d.getFullYear(), d.getMonth(), 1);
+  const w = weekIndexOf(first, settings.weekStart);
+  return weekStartDate(w, settings.weekStart).getMonth() === first.getMonth() ? w : w + 1;
+}
 
-  // Only the immediately-next week's boundary pill can be close enough to
-  // collide with the label (rows are far taller than the label).
-  let push = 0;
-  const nextLast = addDays(weekStartDate(topWeek + 1, settings.weekStart), 6);
-  if (nextLast.getMonth() !== current.getMonth()) {
-    const dist = (topWeek + 1 - MIN_WEEK) * rowHeight - topPx; // px to the pill row
-    const clearance = 6 + stickyMonth.offsetHeight; // label top offset + height
-    if (dist < clearance) push = dist - clearance;
+/** A floating month label, lazily grown into a reusable pool. */
+function pillAt(i: number): HTMLElement {
+  let p = monthPills[i];
+  if (!p) {
+    p = document.createElement("div");
+    p.className = "month-pill";
+    monthOverlay.appendChild(p);
+    monthPills[i] = p;
   }
-  stickyMonth.style.transform = `translateY(${push}px)`;
+  return p;
+}
+
+/**
+ * Position the floating month labels — one deterministic spot per pill, so there
+ * is never a second copy lagging a frame behind. Each month gets exactly one
+ * pill: it rides the top border of the week that *begins* the month, then clamps
+ * at the resting line once that week reaches the top edge. The label for the
+ * month in effect stays docked there — it lives in this pinned overlay rather
+ * than a week row, so it survives the rows being recycled beneath it. As the
+ * next month's pill climbs to the line it shoves the docked one up out of sight,
+ * a few px clear — the mirror of iOS's section headers.
+ */
+function positionMonthLabels(): void {
+  const topPx = scroller.scrollTop;
+  const viewportH = scroller.clientHeight - DOW_H;
+
+  // All pills share one height; measure it to place the resting line.
+  const probe = pillAt(0);
+  probe.style.display = "";
+  if (!probe.textContent) probe.textContent = " ";
+  const labelH = probe.offsetHeight;
+  const restCenter = 6 + labelH / 2; // matches the old pinned label's centre
+  const sep = labelH + 6; // min centre-to-centre gap so two pills never touch
+
+  // Docked label = latest month boundary at/above the resting line; then walk
+  // forward over every boundary week still within the viewport.
+  const thresholdWeek = Math.max(
+    MIN_WEEK,
+    Math.min(MAX_WEEK, MIN_WEEK + Math.floor((topPx + restCenter) / rowHeight)),
+  );
+  let b = Math.max(MIN_WEEK, monthBoundaryWeek(weekStartDate(thresholdWeek, settings.weekStart)));
+  const lastWeek = MIN_WEEK + Math.ceil((topPx + viewportH) / rowHeight);
+  const weeks: number[] = [];
+  while (b <= lastWeek && b <= MAX_WEEK) {
+    weeks.push(b);
+    const bs = weekStartDate(b, settings.weekStart);
+    b = monthBoundaryWeek(new Date(bs.getFullYear(), bs.getMonth() + 1, 1));
+  }
+
+  for (let i = 0; i < weeks.length; i++) {
+    const rowTop = (weeks[i] - MIN_WEEK) * rowHeight - topPx;
+    let center = Math.max(restCenter, rowTop); // never rise above the resting line
+    if (i + 1 < weeks.length) {
+      const nextTop = (weeks[i + 1] - MIN_WEEK) * rowHeight - topPx;
+      center = Math.min(center, nextTop - sep); // the arriving pill pushes this one up
+    }
+    const pill = pillAt(i);
+    pill.textContent = fmtMonthYear(weekStartDate(weeks[i], settings.weekStart));
+    pill.style.display = "";
+    // translateX(-50%) centres the pill on the first day column (its `left` is
+    // that column's centre); translateY carries the docking / hand-off motion.
+    pill.style.transform = `translateX(-50%) translateY(calc(${center}px - 50%))`;
+  }
+  for (let i = weeks.length; i < monthPills.length; i++) monthPills[i].style.display = "none";
 }
 
 let layoutQueued = false;
