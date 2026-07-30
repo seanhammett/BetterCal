@@ -1,0 +1,166 @@
+/* =============================================================================
+   colors.css — the whole palette, in one place.
+
+   Every colour the UI uses is a CSS custom property defined here. Light values
+   live in :root; the dark block below overrides only what changes between
+   themes. To retint the app, edit a value here — nothing else references a raw
+   colour. Each property is annotated with the elements it paints ("Paints:"),
+   so you can see what a change will touch before you make it.
+
+   Loaded before styles.css, which keeps the non-colour variables (sizes,
+   z-index seeds) and all the layout rules.
+
+   Notes on the theme model:
+   - Light is the default (:root). The dark block only fires under
+     @media (prefers-color-scheme: dark); it follows the OS setting.
+   - --fg / --bg flip between themes, so "today" surfaces that fill with --fg
+     read as near-black text on light and near-white on dark — the inverse of
+     the page. Ink drawn over them uses --bg to read back the page colour.
+   - A few reds (--now, --danger) are intentionally theme-independent: the same
+     value carries both themes, so they are defined once, in :root only.
+   ============================================================================= */
+
+:root {
+  /* ---- Surfaces ---------------------------------------------------------- */
+
+  /* Page background; every input / control fill; also the "ink over an
+     inverted today cell" colour (today's text is --bg so it reads as the page).
+     Paints: html/body bg · .btn · #week-start · active view tab · #dow-row ·
+     #tz-search · day-hours inputs · #wk-hours · .wk-head · #wk-corner ·
+     editor inputs · full-screen overlays · .wk-block 1px ring · today's date
+     numbers + on-today chips/labels. */
+  --bg: #ffffff;
+
+  /* Secondary surface: sidebar / minimap panels, hover fills, week bar, seams.
+     Paints: .btn:hover · #sidebar · #minimap · .tz-opt:hover ·
+     .chip.timed:hover · month-view odd-month days (.m-odd) · .wk-bar ·
+     #wk-corner (lower band) · .wk-band-more · .wk-seam. */
+  --bg-alt: #f6f7f8;
+
+  /* Flyouts, editor modal, toast. */
+  --panel-bg: #ffffff;
+
+  /* ---- Text -------------------------------------------------------------- */
+
+  /* Primary ink. Also the *fill* of inverted "today" surfaces and the month
+     divider line — those are near-black on light / near-white on dark.
+     Paints: body text · .btn text · most :hover text · .chip text · editor
+     inputs · .day.today background · .wk-col.today background · .wk-month-line. */
+  --fg: #1f2328;
+
+  /* Muted / secondary text: labels, weekday names, week numbers, clock
+     seconds & date, time-zone rows, chip times, "+N more", card body, etc. */
+  --fg-muted: #6b7280;
+
+  /* ---- Lines ------------------------------------------------------------- */
+
+  /* Hairline borders and grid rules — the default 1px line everywhere.
+     Paints: panel / section / sidebar / minimap borders · #dow-row &
+     .week bottoms · .day & .wk-col right borders + the week-grid hour rules ·
+     .wk-head bottom · .wk-allday top · spinner track · editor border. */
+  --line: #e5e7eb;
+
+  /* Heavier border on interactive controls and the week seam.
+     Paints: .btn · #week-start · day-hours & editor inputs · .wk-seam edges ·
+     #toast border. */
+  --line-strong: #d1d5db;
+
+  /* ---- Accent (brand blue) ----------------------------------------------- */
+
+  /* Interactive accent.
+     Paints: .btn.primary · Today button · .link-btn · #tz-search focus ring ·
+     minimap viewport box · spinner head · month-head month word (.dmon) ·
+     "Open in Google Calendar" link · zoom sliders' accent-color. */
+  --accent: #2563eb;
+
+  /* Text/inked shapes sitting on an --accent fill.
+     Paints: .btn.primary label · week-head today date-ring number. */
+  --accent-fg: #ffffff;
+
+  /* ---- Today & day markers ----------------------------------------------- */
+
+  /* Soft highlight behind the week-view today *day-head* (the header cell only;
+     the column body below uses the --fg inversion). Paints: .wk-dh.today. */
+  --today-bg: #eff6ff;
+
+  /* The filled disc around today's date in the week-view head.
+     Paints: .wk-dh.today .wk-dnum. */
+  --today-ring: #2563eb;
+
+  /* Hour rules drawn over the inverted today column — a faint wash of the page
+     colour so the gridlines still read against the --fg fill.
+     Paints: .wk-col.today background gradient. */
+  --today-rule: rgba(255, 255, 255, 0.14);
+
+  /* Weekend column shading (both views).
+     Paints: .day.weekend · .wk-dh.weekend · .wk-col.weekend. */
+  --weekend-bg: #f2f4f8;
+
+  /* Wake / sleep dashed rule across the week grid (amber).
+     Paints: .wk-daymark. */
+  --daymark: rgba(202, 138, 4, 0.5);
+
+  /* Clock-in / clock-out dashed rule — theme-adaptive neutral (dark on light,
+     light on dark) so it reads apart from the amber wake/sleep pair.
+     Paints: .wk-clockmark. */
+  --clockmark: rgba(31, 35, 40, 0.6);
+
+  /* Current-time red — theme-independent. The "now" line and every today edge.
+     Paints: .wk-now line + dot · .wk-col.today left edge · .day.today top edge ·
+     minimap today marker (#mini-today, both orientations). */
+  --now: #e5484d;
+
+  /* ---- Month-label pills ------------------------------------------------- */
+
+  /* Floating month pill fill / text (both views). --pill-bg inverts with theme
+     (dark pill on light, light pill on dark) so it stands off the grid.
+     Paints: .month-pill · .wk-month-pill. */
+  --pill-bg: #1f2328;
+  --pill-fg: #ffffff;
+
+  /* ---- Misc -------------------------------------------------------------- */
+
+  /* Loading skeleton blocks. Paints: .skel. */
+  --skeleton: #eceef0;
+
+  /* Destructive / error red — theme-independent.
+     Paints: .error-text · .btn.danger (text+border) · .btn.danger.confirm fill. */
+  --danger: #dc2626;
+
+  /* Drop shadow for floating surfaces. Paints: .flyout · #editor · #toast. */
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+
+/* Dark theme — follows the OS setting. Only the properties that differ from
+   the light values above are listed; everything else inherits from :root
+   (notably --now and --danger, which are the same red in both themes). */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17191c;
+    --bg-alt: #1d2024;
+    --panel-bg: #1d2024;
+
+    --fg: #e6e8ea;
+    --fg-muted: #9aa1a9;
+
+    --line: #2a2e33;
+    --line-strong: #3a3f45;
+
+    --accent: #4f8ef7;
+    --accent-fg: #0e1116;
+
+    --today-bg: #1b2a45;
+    --today-ring: #4f8ef7;
+    --today-rule: rgba(0, 0, 0, 0.14);
+    --weekend-bg: #1a1d22;
+    --daymark: rgba(250, 204, 21, 0.4);
+    --clockmark: rgba(230, 232, 234, 0.85);
+
+    --pill-bg: #e6e8ea;
+    --pill-fg: #17191c;
+
+    --skeleton: #24282d;
+
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+}

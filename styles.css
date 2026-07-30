@@ -33,54 +33,8 @@
      use to 3px × the bar's height, so the radii land where they should. */
   --blip-mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 18" preserveAspectRatio="none"><rect width="3" height="18" rx="1.4" ry="1.4" fill="black"/></svg>');
 
-  --bg: #ffffff;
-  --bg-alt: #f6f7f8;
-  --fg: #1f2328;
-  --fg-muted: #6b7280;
-  --line: #e5e7eb;
-  --line-strong: #d1d5db;
-  --accent: #2563eb;
-  --accent-fg: #ffffff;
-  --today-bg: #eff6ff;
-  --today-ring: #2563eb;
-  /* Hour rules over the inverted today column: a faint of the page colour so
-     they still read as gridlines against the --fg fill. */
-  --today-rule: rgba(255, 255, 255, 0.14);
-  --weekend-bg: #f2f4f8;
-  --daymark: rgba(202, 138, 4, 0.5);
-  /* Clock-in / clock-out rule — light on dark, dark on light (mirrors --fg). */
-  --clockmark: rgba(31, 35, 40, 0.6);
-  /* The current-time red, reused to outline today's column. Theme-independent. */
-  --now: #e5484d;
-  --pill-bg: #1f2328;
-  --pill-fg: #ffffff;
-  --skeleton: #eceef0;
-  --panel-bg: #ffffff;
-  --shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #17191c;
-    --bg-alt: #1d2024;
-    --fg: #e6e8ea;
-    --fg-muted: #9aa1a9;
-    --line: #2a2e33;
-    --line-strong: #3a3f45;
-    --accent: #4f8ef7;
-    --accent-fg: #0e1116;
-    --today-bg: #1b2a45;
-    --today-ring: #4f8ef7;
-    --today-rule: rgba(0, 0, 0, 0.14);
-    --weekend-bg: #1a1d22;
-    --daymark: rgba(250, 204, 21, 0.4);
-    --clockmark: rgba(230, 232, 234, 0.85);
-    --pill-bg: #e6e8ea;
-    --pill-fg: #17191c;
-    --skeleton: #24282d;
-    --panel-bg: #1d2024;
-    --shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  }
+  /* Every colour variable (--bg, --fg, --accent, --now, …) lives in colors.css,
+     loaded just before this file. Edit the palette there. */
 }
 
 * { box-sizing: border-box; }
@@ -565,7 +519,7 @@ html, body {
   left: 0;
   right: 0;
   height: 0;
-  border-top: 2px solid #e5484d;
+  border-top: 2px solid var(--now);
   pointer-events: none;
 }
 #mini-today[hidden] { display: none; }
@@ -605,7 +559,7 @@ html, body {
   height: auto;
   width: 0;
   border-top: none;
-  border-left: 2px solid #e5484d;
+  border-left: 2px solid var(--now);
 }
 
 /* ---------- Scroller / weeks ---------- */
@@ -1323,7 +1277,7 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
 }
 .card h1 { font-size: 22px; margin: 0 0 8px; }
 .card p { color: var(--fg-muted); margin: 0 0 20px; }
-.error-text { color: #dc2626; font-size: 12px; word-break: break-word; }
+.error-text { color: var(--danger); font-size: 12px; word-break: break-word; }
 
 .spinner {
   width: 28px;
@@ -1413,8 +1367,8 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
 .ev-spacer { flex: 1; }
 #ev-gcal-link { font-size: 11.5px; color: var(--accent); text-decoration: none; }
 #ev-gcal-link:hover { text-decoration: underline; }
-.btn.danger { color: #dc2626; border-color: #dc2626; }
-.btn.danger.confirm { background: #dc2626; color: #fff; }
+.btn.danger { color: var(--danger); border-color: var(--danger); }
+.btn.danger.confirm { background: var(--danger); color: #fff; }
 .btn.danger[hidden] { display: none; }
 #ev-gcal-link[hidden] { display: none; }
 
