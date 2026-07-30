@@ -22,7 +22,9 @@ import {
   DENSE_DAY_W,
   HOUR_H,
   MAX_DAY_W,
+  MAX_HOUR_H,
   MIN_DAY_W,
+  MIN_HOUR_H,
   WEEK_BAR_H,
   allDayBandH,
   assignBannerLanes,
@@ -61,8 +63,18 @@ export interface WeekViewDeps {
   weekStart(): WeekStart;
   todayKey(): string;
   dayWidth(): number;
-  /** Wake / sleep times as minutes from midnight; null hides that line. */
-  dayHours(): { wake: number | null; sleep: number | null };
+  /** Vertical zoom in px per hour, or null to auto-fit the awake window. */
+  hourHeight(): number | null;
+  /**
+   * Day-hour lines as minutes from midnight; null hides that line. Wake / sleep
+   * bracket the awake window (amber); clock-in / clock-out the worked one (white).
+   */
+  dayHours(): {
+    wake: number | null;
+    sleep: number | null;
+    clockIn: number | null;
+    clockOut: number | null;
+  };
   onEventClick(event: CalEvent): void;
   /** Click on empty grid space — create at that day and time of day. */
   onSlotClick(date: Date, minutes: number): void;
@@ -88,6 +100,12 @@ export interface WeekView {
   /** Inclusive day-number range currently on screen. */
   visibleDayRange(): [number, number];
   applyDayWidth(width: number, reanchor: boolean): void;
+  /** Set an explicit vertical zoom (px per hour), keeping the centred time put. */
+  applyHourHeight(height: number): void;
+  /** The vertical scale currently in effect (px per hour), for the zoom slider. */
+  currentHourHeight(): number;
+  /** Wake / sleep / clock times changed: refit the vertical scale to the window. */
+  refitDayHours(): void;
   /** Move the current-time line (called once a minute). */
   tick(): void;
 }
@@ -105,6 +123,8 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
   /** Reusable pool of floating month labels, kept in #wk-sticky. */
   const monthPills: HTMLElement[] = [];
   let dayWidth = deps.dayWidth();
+  /** Height of one hour row — fitted so the awake window fills the viewport. */
+  let hourH = HOUR_H;
   let bandLanes = 1;
   /** Cross-week all-day lane assignment, keyed by eventKey(). */
   let laneMap = new Map<string, number>();
@@ -121,8 +141,9 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
     root.style.setProperty("--day-w", `${dayWidth}px`);
     root.style.setProperty("--wk-head-h", `${headH()}px`);
     root.style.setProperty("--wk-allday-h", `${allDayBandH(bandLanes)}px`);
+    root.style.setProperty("--hour-h", `${hourH}px`);
     sizer.style.width = `${TOTAL_WEEKS * pitch()}px`;
-    sizer.style.height = `${headH() + 24 * HOUR_H}px`;
+    sizer.style.height = `${headH() + 24 * hourH}px`;
   }
 
   function buildHourGutter(): void {
@@ -130,10 +151,43 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
     for (let h = 1; h < 24; h++) {
       const el = document.createElement("div");
       el.className = "wk-hr";
-      el.style.top = `${h * HOUR_H}px`;
+      el.style.top = `${h * hourH}px`;
       el.textContent = fmtHour(h);
       hoursInner.appendChild(el);
     }
+  }
+
+  /**
+   * The hour height that makes the awake window (wake→sleep) fill the viewport,
+   * clamped to sane bounds. The grid sits below the pinned head, so that height
+   * is what the window has to fill — subtracting it (and a small margin, matching
+   * defaultScrollTop) is what actually parks sleep at the bottom edge. Falls back
+   * to the default when there's no window to fit (a bound unset, or the grid
+   * isn't measurable yet).
+   */
+  function fittedHourH(): number {
+    const { wake, sleep } = deps.dayHours();
+    const grid = scroller.clientHeight - headH() - 6;
+    if (wake !== null && sleep !== null && sleep > wake && grid > 0) {
+      const hours = (sleep - wake) / 60;
+      return Math.max(MIN_HOUR_H, Math.min(MAX_HOUR_H, grid / hours));
+    }
+    return HOUR_H;
+  }
+
+  /** The vertical scale to use: the user's explicit zoom, or the fitted one. */
+  function effectiveHourH(): number {
+    const manual = deps.hourHeight();
+    return manual !== null ? Math.max(MIN_HOUR_H, Math.min(MAX_HOUR_H, manual)) : fittedHourH();
+  }
+
+  /** Apply a new hour height: republish geometry, the gutter, and (optionally)
+   *  the mounted panels, whose blocks and marks are all placed from it. */
+  function setHourHeight(h: number, rerenderPanels: boolean): void {
+    hourH = Math.max(MIN_HOUR_H, Math.min(MAX_HOUR_H, Math.round(h)));
+    applyGeometry();
+    buildHourGutter();
+    if (rerenderPanels) for (const [idx, panel] of mounted) renderPanel(panel, idx);
   }
 
   /* ---------------- Rendering one week panel ---------------- */
@@ -316,7 +370,7 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
         const y = e.clientY - col.getBoundingClientRect().top;
         const mins = Math.max(
           0,
-          Math.min(1440 - SLOT_SNAP, Math.floor(y / HOUR_H / (SLOT_SNAP / 60)) * SLOT_SNAP),
+          Math.min(1440 - SLOT_SNAP, Math.floor(y / hourH / (SLOT_SNAP / 60)) * SLOT_SNAP),
         );
         deps.onSlotClick(date, mins);
       });
@@ -324,14 +378,19 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
     }
     body.appendChild(cols);
 
-    // Wake / sleep markers: a faint pair of rules straight across the week,
-    // bracketing the hours the user is actually awake for.
-    const { wake, sleep } = deps.dayHours();
-    for (const mins of [wake, sleep]) {
+    // Day-hour markers: rules straight across the week. Wake / sleep bracket the
+    // awake window (amber); clock-in / clock-out the worked window (white).
+    const { wake, sleep, clockIn, clockOut } = deps.dayHours();
+    for (const [cls, mins] of [
+      ["wk-daymark", wake],
+      ["wk-daymark", sleep],
+      ["wk-clockmark", clockIn],
+      ["wk-clockmark", clockOut],
+    ] as const) {
       if (mins === null) continue;
       const mark = document.createElement("div");
-      mark.className = "wk-daymark";
-      mark.style.top = `${(mins / 60) * HOUR_H}px`;
+      mark.className = cls;
+      mark.style.top = `${(mins / 60) * hourH}px`;
       body.appendChild(mark);
     }
 
@@ -339,7 +398,7 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
     ev.className = "wk-ev";
     if (state === "loaded" || state === "error") {
       for (let c = 0; c < 7; c++) {
-        for (const box of layoutDayGrid(events, firstDay + c)) {
+        for (const box of layoutDayGrid(events, firstDay + c, hourH)) {
           ev.appendChild(buildBlock(box.event, box, c));
         }
       }
@@ -353,8 +412,8 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
         sk.className = "skel";
         sk.style.left = `calc(${c} * var(--day-w) + 2px)`;
         sk.style.width = `calc(var(--day-w) - 6px)`;
-        sk.style.top = `${top * HOUR_H}px`;
-        sk.style.height = `${h * HOUR_H}px`;
+        sk.style.top = `${top * hourH}px`;
+        sk.style.height = `${h * hourH}px`;
         ev.appendChild(sk);
       }
     }
@@ -365,7 +424,7 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
     if (todayCol >= 0 && todayCol <= 6) {
       const line = document.createElement("div");
       line.className = "wk-now";
-      line.style.top = `${((now.getHours() * 60 + now.getMinutes()) / 60) * HOUR_H}px`;
+      line.style.top = `${((now.getHours() * 60 + now.getMinutes()) / 60) * hourH}px`;
       line.style.left = `calc(${todayCol} * var(--day-w))`;
       line.style.width = "var(--day-w)";
       ev.appendChild(line);
@@ -621,6 +680,17 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
 
   /* ---------------- Public surface ---------------- */
 
+  /**
+   * Where the grid opens vertically. Anchored just above the user's wake time so
+   * the awake window sits at the top of the view; falls back to a fixed
+   * working-day hour when no wake time is set.
+   */
+  function defaultScrollTop(): number {
+    const { wake } = deps.dayHours();
+    if (wake !== null) return Math.max(0, (wake / 60) * hourH - 6);
+    return OPEN_AT_HOUR * hourH;
+  }
+
   function activate(date: Date): void {
     active = true;
     root.hidden = false;
@@ -628,10 +698,35 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
     applyGeometry();
     unmountAll();
     scrollToDate(date, false);
-    // Open on the working day rather than at midnight — but only the first
-    // time, so switching tabs back and forth keeps the user's scroll position.
-    if (scroller.scrollTop === 0) scroller.scrollTop = OPEN_AT_HOUR * HOUR_H;
+    // Apply the vertical scale every time (the fitted window, or the user's
+    // explicit zoom) so it's never left at the stale default — measuring the now-
+    // visible viewport. Only park wake at the top on a fresh open; a scroll left
+    // over from before (a tab switch) is kept.
+    setHourHeight(effectiveHourH(), false);
+    if (scroller.scrollTop === 0) scroller.scrollTop = defaultScrollTop();
     layout();
+  }
+
+  /** Set an explicit vertical zoom, keeping the time at the viewport centre put
+   *  so zooming grows/shrinks around what you're looking at. */
+  function applyHourHeight(height: number): void {
+    const vh = scroller.clientHeight;
+    const centerMin = ((scroller.scrollTop + vh / 2 - headH()) / hourH) * 60;
+    setHourHeight(height, true);
+    scroller.scrollTop = Math.max(0, (centerMin / 60) * hourH + headH() - vh / 2);
+    if (active) layout();
+  }
+
+  /** Wake / sleep (or clock times) changed: in auto-fit mode, refit the vertical
+   *  scale so the awake window fills the viewport and re-anchor on wake; in manual
+   *  mode, keep the user's zoom but redraw the moved marks. */
+  function refitDayHours(): void {
+    const autoFit = deps.hourHeight() === null;
+    setHourHeight(effectiveHourH(), true);
+    if (active) {
+      if (autoFit) scroller.scrollTop = defaultScrollTop();
+      layout();
+    }
   }
 
   function hide(): void {
@@ -655,7 +750,7 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
     const line = sizer.querySelector<HTMLElement>(".wk-now");
     if (!line) return;
     const now = new Date();
-    line.style.top = `${((now.getHours() * 60 + now.getMinutes()) / 60) * HOUR_H}px`;
+    line.style.top = `${((now.getHours() * 60 + now.getMinutes()) / 60) * hourH}px`;
   }
 
   /* ---------------- Wiring ---------------- */
@@ -678,6 +773,9 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
     anchorDate,
     visibleDayRange,
     applyDayWidth,
+    applyHourHeight,
+    currentHourHeight: () => hourH,
+    refitDayHours,
     tick,
   };
 }

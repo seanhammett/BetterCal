@@ -14,7 +14,7 @@
   --dow-h: 28px;
   --side-w: 216px;
   --side-w-collapsed: 30px;
-  --mini-w: 64px;
+  --mini-w: 48px;
   --mini-h: 34px;
   --wk-gutter: 22px;
 
@@ -43,8 +43,15 @@
   --accent-fg: #ffffff;
   --today-bg: #eff6ff;
   --today-ring: #2563eb;
+  /* Hour rules over the inverted today column: a faint of the page colour so
+     they still read as gridlines against the --fg fill. */
+  --today-rule: rgba(255, 255, 255, 0.14);
   --weekend-bg: #f2f4f8;
   --daymark: rgba(202, 138, 4, 0.5);
+  /* Clock-in / clock-out rule — light on dark, dark on light (mirrors --fg). */
+  --clockmark: rgba(31, 35, 40, 0.6);
+  /* The current-time red, reused to outline today's column. Theme-independent. */
+  --now: #e5484d;
   --pill-bg: #1f2328;
   --pill-fg: #ffffff;
   --skeleton: #eceef0;
@@ -64,8 +71,10 @@
     --accent-fg: #0e1116;
     --today-bg: #1b2a45;
     --today-ring: #4f8ef7;
+    --today-rule: rgba(0, 0, 0, 0.14);
     --weekend-bg: #1a1d22;
     --daymark: rgba(250, 204, 21, 0.4);
+    --clockmark: rgba(230, 232, 234, 0.85);
     --pill-bg: #e6e8ea;
     --pill-fg: #17191c;
     --skeleton: #24282d;
@@ -440,11 +449,17 @@ html, body {
   padding: 0;
 }
 
-#zoom { width: 100%; accent-color: var(--accent); cursor: pointer; }
+#zoom,
+#vzoom { width: 100%; accent-color: var(--accent); cursor: pointer; }
+/* The vertical-zoom control sits under the horizontal one, shown in week view. */
+.vzoom { margin-top: 12px; }
+.vzoom[hidden] { display: none; }
 
-/* Wake / sleep times (week view only). */
+/* Wake / sleep and clock-in / clock-out times (week view only). One set per
+   row, the two rows stacked. */
 .side-hours[hidden] { display: none; }
 .hours-row { display: flex; gap: 8px; }
+.hours-row + .hours-row { margin-top: 8px; }
 .hours-field {
   flex: 1;
   min-width: 0;
@@ -454,6 +469,7 @@ html, body {
   font-size: 10.5px;
   color: var(--fg-muted);
 }
+.hours-field > span { white-space: nowrap; }
 .hours-field input[type="time"] {
   width: 100%;
   min-width: 0;
@@ -485,11 +501,11 @@ html, body {
 #sidebar.collapsed .side-body { display: none; }
 #sidebar.collapsed #btn-sidebar-expand { display: block; }
 
-/* Year minimap — always-visible right rail */
+/* Year minimap — a left rail between the sidebar and the calendar (month view). */
 #minimap {
   width: var(--mini-w);
   flex: none;
-  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
   background: var(--bg-alt);
   display: flex;
   flex-direction: column;
@@ -560,7 +576,7 @@ html, body {
   flex: 1;
   height: var(--mini-h);
   flex-direction: row;
-  border-left: none;
+  border-right: none;
   border-top: 1px solid var(--line);
 }
 #minimap.horizontal #mini-year {
@@ -723,7 +739,15 @@ html, body {
 .day:last-child { border-right: none; }
 .day.m-odd { background: var(--bg-alt); }
 .day.weekend { background: var(--weekend-bg); }
-.day.today { background: var(--today-bg); }
+/* Today is inverted for maximum contrast: --fg is near-black on light, near-white
+   on dark, so the cell flips to the opposite of the page and its text (--bg) reads
+   back the page colour. A red rule caps its top edge — the horizontal mirror of the
+   week view's today column, in the same current-time red. box-sizing keeps the 2px
+   inside the cell. */
+.day.today {
+  background: var(--fg);
+  border-top: 2px solid var(--now);
+}
 
 .dhead {
   display: flex;
@@ -740,10 +764,17 @@ html, body {
   font-weight: 600;
   font-size: 12px;
 }
-.day.today .dnum {
-  background: var(--today-ring);
-  color: var(--accent-fg);
-  border-radius: 50%;
+/* Today's head is "29 July 2026": the number keeps its usual style but flips to
+   the page colour over the inverted cell, and .dfull carries the month + year. */
+.day.today .dnum { color: var(--bg); }
+.dfull {
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--bg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .dmon {
   font-size: 12px;
@@ -861,6 +892,15 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
   cursor: pointer;
 }
 .more:hover { color: var(--fg); }
+
+/* Transparent-background elements over the inverted today cell: flip their ink
+   (and hover fill) back to the page colour so they stay legible. */
+.chip.timed.on-today,
+.chip.timed.on-today .ctime,
+.more.on-today,
+.more.on-today:hover { color: var(--bg); }
+.chip.timed.on-today .ctime { opacity: 0.75; }
+.chip.timed.on-today:hover { background: rgba(127, 127, 127, 0.28); }
 
 /* ---------- Week grid: weeks laid out left to right, hours top to bottom ----------
 
@@ -1084,7 +1124,19 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
   );
 }
 .wk-col.weekend { background-color: var(--weekend-bg); }
-.wk-col.today { background-color: var(--today-bg); }
+/* Today's column is inverted to the contrasting colour mode — the same treatment
+   the month view gives its today cell (--fg fill, opposite the page). Its hour
+   rules switch to a faint page-colour tint so the grid still reads, and a red rule
+   down its left edge (the current-time red) marks it. box-sizing keeps the 2px in. */
+.wk-col.today {
+  background-color: var(--fg);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--today-rule) 0 1px,
+    transparent 1px var(--hour-h)
+  );
+  border-left: 2px solid var(--now);
+}
 
 .wk-ev {
   position: absolute;
@@ -1093,13 +1145,24 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
 }
 .wk-ev > * { pointer-events: auto; }
 
-/* Wake / sleep: a faint rule straight across the week's seven days. */
+/* Wake / sleep: a finely dashed amber rule straight across the week's seven
+   days. A repeating gradient (not a dashed border) so the dashes stay small. */
 .wk-daymark {
   position: absolute;
   left: 0;
   right: 0;
-  height: 0;
-  border-top: 1px solid var(--daymark);
+  height: 1px;
+  background: repeating-linear-gradient(to right, var(--daymark) 0 3px, transparent 3px 6px);
+  pointer-events: none;
+}
+/* Clock-in / clock-out: the same finely dashed rule, in the theme-adaptive
+   neutral (light on dark, dark on light) to set it apart from the amber pair. */
+.wk-clockmark {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: repeating-linear-gradient(to right, var(--clockmark) 0 3px, transparent 3px 6px);
   pointer-events: none;
 }
 
@@ -1145,7 +1208,7 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
   position: absolute;
   z-index: 3;
   height: 0;
-  border-top: 2px solid #e5484d;
+  border-top: 2px solid var(--now);
   pointer-events: none;
 }
 .wk-now::before {
@@ -1156,7 +1219,7 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #e5484d;
+  background: var(--now);
 }
 
 /* The seam between one week and the next. It sits below .wk-head (z 5) so a
@@ -1204,13 +1267,14 @@ body.dragging-resize, body.dragging-resize * { cursor: ew-resize !important; }
 
 /* Divider down the left edge of a month's first-day column, run the full grid
    height and layered above the pinned head (z 5) so it reaches the very top.
-   --fg is near-white on dark, near-black on light — inverting with the theme. */
+   --fg is near-white on dark, near-black on light — inverting with the theme;
+   1px to match the weight of the ordinary grid lines. */
 .wk-month-line {
   position: absolute;
   top: 0;
   bottom: 0;
   z-index: 6;
-  width: 2px;
+  width: 1px;
   background: var(--fg);
   pointer-events: none;
 }

@@ -76,6 +76,16 @@ export function fmtMonthShort(d: Date): string {
   return monthShortFmt.format(d);
 }
 
+const monthYearTitleFmt = new Intl.DateTimeFormat(undefined, {
+  month: "long",
+  year: "numeric",
+});
+
+/** "July 2026" — continues today's day number into a full date ("29 July 2026"). */
+export function fmtMonthYearTitle(d: Date): string {
+  return monthYearTitleFmt.format(d);
+}
+
 export function fmtDow(d: Date): string {
   return dowFmt.format(d);
 }

@@ -9,12 +9,18 @@ export interface Settings {
   selectedCalendarIds: string[] | null;
   /** Week-row height in px (month-view zoom). */
   rowHeight: number;
-  /** Day-column width in px (week-view zoom). */
+  /** Day-column width in px (week-view horizontal zoom). */
   dayWidth: number;
+  /** Hour-row height in px (week-view vertical zoom); null auto-fits the awake
+   *  window (wake→sleep) to the viewport. A number is an explicit manual zoom. */
+  hourHeight: number | null;
   view: ViewMode;
   /** Wake / sleep time as minutes from midnight; null hides that week-grid line. */
   wakeMinutes: number | null;
   sleepMinutes: number | null;
+  /** Clock-in / clock-out time as minutes from midnight; null hides that line. */
+  clockInMinutes: number | null;
+  clockOutMinutes: number | null;
   sidebarCollapsed: boolean;
   /** Extra IANA time zones shown under the clock. */
   timeZones: string[];

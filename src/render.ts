@@ -1,4 +1,4 @@
-import { addDays, dayKey, dayNumber, fmtMonthYear, isoWeek, weekStartDate } from "./dates.js";
+import { addDays, dayKey, dayNumber, fmtMonthYear, fmtMonthYearTitle, isoWeek, weekStartDate } from "./dates.js";
 import type { DragMode } from "./drag.js";
 import { CHIP_H, type SpanBox, type TimedBox, layoutWeek, topForRow } from "./layout.js";
 import type { EventStore } from "./store.js";
@@ -175,9 +175,10 @@ export function renderWeekContents(row: HTMLElement, weekIdx: number, ctx: Rende
   for (let i = 0; i < 7; i++) {
     const date = addDays(start, i);
     const weekend = date.getDay() === 0 || date.getDay() === 6;
+    const isToday = dayKey(date) === todayKey;
     const cell = document.createElement("div");
     cell.className = `day ${date.getMonth() % 2 ? "m-odd" : "m-even"}${weekend ? " weekend" : ""}`;
-    if (dayKey(date) === todayKey) cell.classList.add("today");
+    if (isToday) cell.classList.add("today");
     cell.addEventListener("click", () => ctx.onDayClick(date));
 
     const head = document.createElement("div");
@@ -186,7 +187,13 @@ export function renderWeekContents(row: HTMLElement, weekIdx: number, ctx: Rende
     num.className = "dnum";
     num.textContent = String(date.getDate());
     head.appendChild(num);
-    if (date.getDate() === 1) {
+    if (isToday) {
+      // Today's number continues into the full date: "29 July 2026".
+      const full = document.createElement("span");
+      full.className = "dfull";
+      full.textContent = fmtMonthYearTitle(date);
+      head.appendChild(full);
+    } else if (date.getDate() === 1) {
       // "1 SEPTEMBER 2026": the day number sits in .dnum; this colored marker
       // carries the full month and year beside it.
       const mon = document.createElement("span");
@@ -213,12 +220,25 @@ export function renderWeekContents(row: HTMLElement, weekIdx: number, ctx: Rende
         events.push({ ...p.event, startDay: p.startDay, endDay: p.endDay });
       }
     }
+    // Timed chips and "+more" over today's inverted cell need their ink flipped
+    // back to the page colour (banner chips carry their own colour, so they don't).
+    let todayCol = -1;
+    for (let c = 0; c < 7; c++) {
+      if (dayKey(addDays(start, c)) === todayKey) todayCol = c;
+    }
+
     const lay = layoutWeek(events, firstDay, rowHeight);
     for (const s of lay.spans) ev.appendChild(buildSpan(s, ctx));
-    for (const t of lay.timed) ev.appendChild(buildTimed(t, ctx));
+    for (const t of lay.timed) {
+      const chip = buildTimed(t, ctx);
+      if (t.col === todayCol) chip.classList.add("on-today");
+      ev.appendChild(chip);
+    }
     for (let c = 0; c < 7; c++) {
       if (lay.moreByCol[c] > 0) {
-        ev.appendChild(buildMore(c, lay.moreRowByCol[c], lay.moreByCol[c], addDays(start, c)));
+        const more = buildMore(c, lay.moreRowByCol[c], lay.moreByCol[c], addDays(start, c));
+        if (c === todayCol) more.classList.add("on-today");
+        ev.appendChild(more);
       }
     }
   } else {

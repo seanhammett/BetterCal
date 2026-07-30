@@ -22,8 +22,10 @@ import {
   DEFAULT_ROW_H,
   DOW_H,
   MAX_DAY_W,
+  MAX_HOUR_H,
   MAX_ROW_H,
   MIN_DAY_W,
+  MIN_HOUR_H,
   MIN_ROW_H,
 } from "./layout.js";
 import { type DragPreview, renderWeekContents } from "./render.js";
@@ -55,6 +57,8 @@ const toast = $<HTMLElement>("toast");
 const monthOverlay = $<HTMLElement>("sticky-month");
 const sidebar = $<HTMLElement>("sidebar");
 const zoomInput = $<HTMLInputElement>("zoom");
+const vzoomInput = $<HTMLInputElement>("vzoom");
+const vzoomRow = $<HTMLElement>("side-vzoom");
 const minimap = $<HTMLElement>("minimap");
 const miniTrack = $<HTMLElement>("mini-track");
 const miniMonths = $<HTMLElement>("mini-months");
@@ -68,9 +72,12 @@ const settings: Settings = {
   selectedCalendarIds: null,
   rowHeight: DEFAULT_ROW_H,
   dayWidth: DEFAULT_DAY_W,
+  hourHeight: null,
   view: "month",
   wakeMinutes: null,
   sleepMinutes: null,
+  clockInMinutes: null,
+  clockOutMinutes: null,
   sidebarCollapsed: false,
   timeZones: [],
 };
@@ -303,9 +310,15 @@ async function loadSettings(): Promise<void> {
     if (typeof saved.dayWidth === "number") {
       settings.dayWidth = Math.max(MIN_DAY_W, Math.min(MAX_DAY_W, saved.dayWidth));
     }
+    // null (or absent) keeps the auto-fit; a number is a saved manual vertical zoom.
+    if (typeof saved.hourHeight === "number") {
+      settings.hourHeight = Math.max(MIN_HOUR_H, Math.min(MAX_HOUR_H, saved.hourHeight));
+    }
     if (saved.view === "month" || saved.view === "week") settings.view = saved.view;
     settings.wakeMinutes = validMinutes(saved.wakeMinutes);
     settings.sleepMinutes = validMinutes(saved.sleepMinutes);
+    settings.clockInMinutes = validMinutes(saved.clockInMinutes);
+    settings.clockOutMinutes = validMinutes(saved.clockOutMinutes);
     if (typeof saved.sidebarCollapsed === "boolean") {
       settings.sidebarCollapsed = saved.sidebarCollapsed;
     }
@@ -718,16 +731,19 @@ function applyView(view: ViewMode, anchor: Date): void {
   $(view === "week" ? "mini-slot-h" : "mini-slot-v").appendChild(minimap);
   miniYear = NaN;
 
-  // Wake / sleep only mean something against a time grid.
+  // Wake / sleep and the vertical (hour-height) zoom only mean something against
+  // a time grid, so they're week-view only.
   $("side-hours").hidden = view !== "week";
+  vzoomRow.hidden = view !== "week";
 
-  // One zoom slider, two meanings: week-row height, or day-column width.
+  // The horizontal slider has two meanings: week-row height, or day-column width.
   if (view === "week") {
     scroller.hidden = true;
     zoomInput.min = String(MIN_DAY_W);
     zoomInput.max = String(MAX_DAY_W);
     zoomInput.value = String(settings.dayWidth);
     weekView.activate(anchor);
+    vzoomInput.value = String(weekView.currentHourHeight());
   } else {
     weekView.hide();
     scroller.hidden = false;
@@ -819,7 +835,13 @@ async function boot(): Promise<void> {
     weekStart: () => settings.weekStart,
     todayKey: () => todayKey,
     dayWidth: () => settings.dayWidth,
-    dayHours: () => ({ wake: settings.wakeMinutes, sleep: settings.sleepMinutes }),
+    hourHeight: () => settings.hourHeight,
+    dayHours: () => ({
+      wake: settings.wakeMinutes,
+      sleep: settings.sleepMinutes,
+      clockIn: settings.clockInMinutes,
+      clockOut: settings.clockOutMinutes,
+    }),
     onEventClick: handleEventClick,
     onSlotClick: handleDayClick,
     onScroll: updateMinimap,
@@ -878,7 +900,7 @@ async function boot(): Promise<void> {
     goToDate(parseDateOnly(dateJump.value), false);
   });
 
-  // Zoom — week-row height in month view, day-column width in week view.
+  // Horizontal zoom — week-row height in month view, day-column width in week view.
   zoomInput.addEventListener("input", () => {
     const value = Number(zoomInput.value);
     if (inWeekView()) applyDayWidth(value);
@@ -886,14 +908,38 @@ async function boot(): Promise<void> {
   });
   $("zoom-reset").addEventListener("click", resetZoom);
 
-  // Wake / sleep lines across the week grid.
+  // Vertical zoom (week view only) — an explicit hour height that overrides the
+  // wake/sleep auto-fit until its own reset restores the fit.
+  vzoomInput.min = String(MIN_HOUR_H);
+  vzoomInput.max = String(MAX_HOUR_H);
+  vzoomInput.step = "2";
+  vzoomInput.addEventListener("input", () => {
+    const value = Number(vzoomInput.value);
+    settings.hourHeight = value;
+    saveSettings();
+    weekView.applyHourHeight(value);
+  });
+  $("vzoom-reset").addEventListener("click", () => {
+    settings.hourHeight = null;
+    saveSettings();
+    weekView.refitDayHours();
+    vzoomInput.value = String(weekView.currentHourHeight());
+  });
+
+  // Wake / sleep and clock-in / clock-out lines across the week grid.
   const wakeInput = $<HTMLInputElement>("wake-time");
   const sleepInput = $<HTMLInputElement>("sleep-time");
+  const clockInInput = $<HTMLInputElement>("clockin-time");
+  const clockOutInput = $<HTMLInputElement>("clockout-time");
   wakeInput.value = toTimeValue(settings.wakeMinutes);
   sleepInput.value = toTimeValue(settings.sleepMinutes);
+  clockInInput.value = toTimeValue(settings.clockInMinutes);
+  clockOutInput.value = toTimeValue(settings.clockOutMinutes);
   const applyDayHours = (): void => {
     saveSettings();
-    weekView.rerender();
+    weekView.refitDayHours();
+    // Auto-fit may have changed the scale; keep the vertical slider in step.
+    vzoomInput.value = String(weekView.currentHourHeight());
   };
   wakeInput.addEventListener("change", () => {
     settings.wakeMinutes = fromTimeValue(wakeInput.value);
@@ -903,11 +949,23 @@ async function boot(): Promise<void> {
     settings.sleepMinutes = fromTimeValue(sleepInput.value);
     applyDayHours();
   });
+  clockInInput.addEventListener("change", () => {
+    settings.clockInMinutes = fromTimeValue(clockInInput.value);
+    applyDayHours();
+  });
+  clockOutInput.addEventListener("change", () => {
+    settings.clockOutMinutes = fromTimeValue(clockOutInput.value);
+    applyDayHours();
+  });
   $("hours-clear").addEventListener("click", () => {
     settings.wakeMinutes = null;
     settings.sleepMinutes = null;
+    settings.clockInMinutes = null;
+    settings.clockOutMinutes = null;
     wakeInput.value = "";
     sleepInput.value = "";
+    clockInInput.value = "";
+    clockOutInput.value = "";
     applyDayHours();
   });
 

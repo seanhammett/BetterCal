@@ -67,25 +67,38 @@
         <div id="side-hours" class="side-section side-hours" hidden>
           <div class="side-label">
             <span>Day hours</span>
-            <button id="hours-clear" class="link-btn" title="Remove the wake / sleep lines">clear</button>
+            <button id="hours-clear" class="link-btn" title="Remove the day-hour lines">clear</button>
           </div>
           <div class="hours-row">
             <label class="hours-field"><span>Wake</span><input id="wake-time" type="time" /></label>
             <label class="hours-field"><span>Sleep</span><input id="sleep-time" type="time" /></label>
           </div>
+          <div class="hours-row">
+            <label class="hours-field"><span>Clock in</span><input id="clockin-time" type="time" /></label>
+            <label class="hours-field"><span>Clock out</span><input id="clockout-time" type="time" /></label>
+          </div>
         </div>
         <div class="side-section side-zoom">
           <div class="side-label">
-            <span>Zoom</span>
+            <span>Horizontal zoom</span>
             <button id="zoom-reset" class="link-btn" title="Reset zoom">reset</button>
           </div>
           <input id="zoom" type="range" step="2" />
+          <div id="side-vzoom" class="vzoom" hidden>
+            <div class="side-label">
+              <span>Vertical zoom</span>
+              <button id="vzoom-reset" class="link-btn" title="Fit to wake / sleep">fit</button>
+            </div>
+            <input id="vzoom" type="range" />
+          </div>
         </div>
       </div>
       <button id="btn-sidebar-expand" title="Show tools">▸</button>
     </aside>
     <div id="view-col">
       <div id="view-main">
+        <div id="mini-slot-v"></div>
+
         <main id="scroller">
           <div id="dow-row"></div>
           <div id="sticky-month"></div>
@@ -102,8 +115,6 @@
           </main>
           <div id="wk-sticky"></div>
         </div>
-
-        <div id="mini-slot-v"></div>
       </div>
       <div id="mini-slot-h"></div>
     </div>
