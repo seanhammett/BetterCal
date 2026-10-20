@@ -79,6 +79,7 @@ const settings: Settings = {
   clockInMinutes: null,
   clockOutMinutes: null,
   sidebarCollapsed: false,
+  homeCity: null,
   timeZones: [],
 };
 
@@ -322,6 +323,7 @@ async function loadSettings(): Promise<void> {
     if (typeof saved.sidebarCollapsed === "boolean") {
       settings.sidebarCollapsed = saved.sidebarCollapsed;
     }
+    if (typeof saved.homeCity === "string" && saved.homeCity) settings.homeCity = saved.homeCity;
     if (Array.isArray(saved.timeZones)) {
       settings.timeZones = saved.timeZones.filter((z): z is string => typeof z === "string");
     }
@@ -650,8 +652,10 @@ function miniJump(clientX: number, clientY: number, smooth: boolean): void {
   const frac = Math.max(0, Math.min(1, ((horiz ? clientX - rect.left : clientY - rect.top)) / size));
   const yearStart = dayNumber(new Date(miniYear, 0, 1));
   const yearDays = dayNumber(new Date(miniYear + 1, 0, 1)) - yearStart;
-  const day = Math.round(yearStart + frac * yearDays);
-  goToDate(dateFromDayNumber(day), smooth);
+  const day = yearStart + frac * yearDays;
+  // Week view follows the pointer continuously; month view lands on week rows.
+  if (inWeekView() && !smooth) weekView.scrubToDay(day);
+  else goToDate(dateFromDayNumber(Math.round(day)), smooth);
 }
 
 /* ---------------- Toast ---------------- */

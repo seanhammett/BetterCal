@@ -1,3 +1,4 @@
+import { CITIES } from "./cities.js";
 import type { Settings } from "./types.js";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -63,6 +64,49 @@ function offsetLabel(min: number): string {
   return `GMT${s}${h}${mm ? `:${String(mm).padStart(2, "0")}` : ""}`;
 }
 
+/** UTC offset for the note beside the clock, e.g. "UTC+2", "UTC−3:30", "UTC+0". */
+function utcLabel(min: number): string {
+  const s = min < 0 ? "−" : "+";
+  const h = Math.floor(Math.abs(min) / 60);
+  const mm = Math.abs(min) % 60;
+  return `UTC${s}${h}${mm ? `:${String(mm).padStart(2, "0")}` : ""}`;
+}
+
+/** A lettered abbreviation for a zone ("CEST", "EDT"), or "" when no locale
+ *  has one and would only spell out the offset ("GMT+9"). en-US knows the
+ *  American names, en-GB the European ones. */
+function zoneAbbrev(zone: string, now: Date): string {
+  for (const locale of [undefined, "en-US", "en-GB"]) {
+    const name = new Intl.DateTimeFormat(locale, { timeZone: zone, timeZoneName: "short" })
+      .formatToParts(now)
+      .find((p) => p.type === "timeZoneName")?.value;
+    if (name && /^[A-Z]{2,5}$/.test(name) && name !== "GMT" && name !== "UTC") return name;
+  }
+  return "";
+}
+
+const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+/** Folded for search: lower case, accents dropped ("Málaga" → "malaga"). */
+const fold = (s: string): string =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+const cityChoices = CITIES.map(([name, country, zone]) => ({
+  label: `${name}, ${country}`,
+  name: fold(name),
+  key: fold(`${name}, ${country}`),
+  zone,
+}));
+
+/** The city shown when the user hasn't picked one: the browser zone's own city
+ *  if it's in the list (Europe/Paris → "Paris, France"), else any city in that
+ *  zone, else the zone's last segment. */
+function defaultCity(): string {
+  const short = zoneShortName(localZone);
+  const inZone = cityChoices.filter((c) => c.zone === localZone);
+  return (inZone.find((c) => c.name === fold(short)) ?? inZone[0])?.label ?? short;
+}
+
 /** Every IANA zone, ordered by current UTC offset (west → east, −12 → +14) so
  *  the picker reads in a predictable sweep. Built once; the live rows below
  *  re-read the clock each second, so a stale DST offset here only affects
@@ -80,6 +124,9 @@ const zoneChoices: { zone: string; name: string; offLabel: string }[] = (() => {
 })();
 
 export function initClock(settings: Settings, save: () => void): void {
+  const cityEl = $("clock-city");
+  const tzAbbrEl = $("clock-tz-abbr");
+  const tzOffEl = $("clock-tz-off");
   const timeEl = $("clock-time");
   const dowEl = $("clock-dow");
   const dateEl = $("clock-date");
@@ -158,6 +205,9 @@ export function initClock(settings: Settings, save: () => void): void {
         return cls ? `<span class="${cls}">${p.value}</span>` : p.value;
       })
       .join("");
+    // Re-read each second so a DST change flips the note on the spot.
+    tzAbbrEl.textContent = zoneAbbrev(localZone, now);
+    tzOffEl.textContent = utcLabel(-now.getTimezoneOffset());
     dowEl.textContent = clockDowFmt.format(now);
     dateEl.textContent = clockDateFmt.format(now);
     for (const el of listEl.querySelectorAll<HTMLElement>(".tz-time")) {
@@ -237,4 +287,90 @@ export function initClock(settings: Settings, save: () => void): void {
 
   buildZoneRows();
   setInterval(tick, 1000);
+  initCityPicker(settings, save, () => {
+    cityEl.textContent = settings.homeCity ?? defaultCity();
+  });
+}
+
+/* ---------------- Home city (Settings) ---------------- */
+
+/**
+ * A search box over CITIES. The box shows the current city; focusing it opens
+ * the list, typing narrows it, and blur or Escape puts the current city back.
+ * The first row, while the box is empty, returns to the automatic city.
+ */
+function initCityPicker(settings: Settings, save: () => void, apply: () => void): void {
+  const input = $<HTMLInputElement>("city-search");
+  const optionsEl = $("city-options");
+  const now = new Date();
+
+  const current = (): string => settings.homeCity ?? defaultCity();
+
+  function pick(city: string | null): void {
+    settings.homeCity = city;
+    save();
+    apply();
+    close();
+    input.blur();
+  }
+
+  function addOption(text: string, sub: string, city: string | null): void {
+    const opt = document.createElement("div");
+    opt.className = "tz-opt";
+    opt.setAttribute("role", "option");
+    const name = document.createElement("span");
+    name.className = "tz-opt-name";
+    name.textContent = text;
+    const off = document.createElement("span");
+    off.className = "tz-opt-off";
+    off.textContent = sub;
+    opt.append(name, off);
+    // mousedown so the pick lands before the input's blur closes the list.
+    opt.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      pick(city);
+    });
+    optionsEl.appendChild(opt);
+  }
+
+  function render(query: string): void {
+    const q = fold(query.trim());
+    optionsEl.textContent = "";
+    if (!q) addOption(`Automatic (${defaultCity()})`, "", null);
+    // Cities whose name starts with the query lead; then any other match on
+    // "name, country" (so "france" lists every French city).
+    const starts = cityChoices.filter((c) => q && c.name.startsWith(q));
+    const rest = cityChoices.filter((c) => !(q && c.name.startsWith(q)) && c.key.includes(q));
+    for (const c of [...starts, ...rest].slice(0, 100)) {
+      addOption(c.label, offsetLabel(zoneOffsetMinutes(c.zone, now)), c.label);
+    }
+    optionsEl.hidden = !optionsEl.firstChild;
+    input.setAttribute("aria-expanded", String(!optionsEl.hidden));
+  }
+
+  function close(): void {
+    optionsEl.hidden = true;
+    optionsEl.textContent = "";
+    input.setAttribute("aria-expanded", "false");
+    input.value = current();
+  }
+
+  input.addEventListener("focus", () => {
+    input.value = "";
+    render("");
+  });
+  input.addEventListener("input", () => render(input.value));
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      input.blur();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      optionsEl.querySelector<HTMLElement>(".tz-opt")?.dispatchEvent(new MouseEvent("mousedown"));
+    }
+  });
+  input.addEventListener("blur", close);
+
+  input.value = current();
+  apply();
 }

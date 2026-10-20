@@ -96,6 +96,8 @@ export interface WeekView {
   reset(): void;
   scrollToDate(date: Date, smooth: boolean): void;
   jumpToDay(day: number, smooth: boolean): void;
+  /** Put a fractional day number at the left edge, to the pixel (minimap scrubbing). */
+  scrubToDay(day: number): void;
   anchorDate(): Date;
   /** Inclusive day-number range currently on screen. */
   visibleDayRange(): [number, number];
@@ -678,6 +680,14 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
     scrollToDate(dateFromDayNumber(day), smooth);
   }
 
+  function scrubToDay(day: number): void {
+    const whole = Math.floor(day);
+    const ws = deps.weekStart();
+    const w = Math.max(MIN_WEEK, Math.min(MAX_WEEK, weekIndexOf(dateFromDayNumber(whole), ws)));
+    const col = whole - dayNumber(weekStartDate(w, ws));
+    scroller.scrollLeft = (w - MIN_WEEK) * pitch() + (col + day - whole) * dayWidth;
+  }
+
   /* ---------------- Public surface ---------------- */
 
   /**
@@ -770,6 +780,7 @@ export function initWeekView(deps: WeekViewDeps): WeekView {
     reset: unmountAll,
     scrollToDate,
     jumpToDay,
+    scrubToDay,
     anchorDate,
     visibleDayRange,
     applyDayWidth,

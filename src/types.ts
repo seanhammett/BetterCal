@@ -22,6 +22,9 @@ export interface Settings {
   clockInMinutes: number | null;
   clockOutMinutes: number | null;
   sidebarCollapsed: boolean;
+  /** City shown above the clock, e.g. "Marseille, France"; null derives one
+   *  from the browser's time zone. */
+  homeCity: string | null;
   /** Extra IANA time zones shown under the clock. */
   timeZones: string[];
 }

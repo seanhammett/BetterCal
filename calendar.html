@@ -24,6 +24,11 @@
       </select>
     </div>
     <div class="panel-section">
+      <div class="panel-title">Home city</div>
+      <input id="city-search" type="text" placeholder="Search cities…" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-controls="city-options" aria-expanded="false" />
+      <div id="city-options" role="listbox" hidden></div>
+    </div>
+    <div class="panel-section">
       <button id="btn-signout" class="btn subtle">Sign out</button>
     </div>
   </div>
@@ -53,7 +58,9 @@
         <div class="side-section side-clock">
           <div class="clock-row">
             <div class="clock-main">
+              <div id="clock-city"></div>
               <div id="clock-time">--:--</div>
+              <div id="clock-tz"><span id="clock-tz-abbr"></span><span id="clock-tz-off"></span></div>
               <div id="clock-dow"></div>
               <div id="clock-date"></div>
             </div>

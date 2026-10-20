@@ -106,6 +106,24 @@ html, body {
   color: var(--fg-muted);
   margin-bottom: 6px;
 }
+#city-search {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+}
+#city-search:focus { outline: none; border-color: var(--accent); }
+#city-options {
+  margin-top: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+#city-options[hidden] { display: none; }
 #week-start {
   width: 100%;
   padding: 5px 8px;
@@ -254,6 +272,31 @@ html, body {
   gap: 10px;
 }
 .clock-main { flex: 1; min-width: 0; }
+#clock-city {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg-muted);
+  line-height: 1.2;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Zone note on one line under the time: "CEST · UTC+2". */
+#clock-tz {
+  display: flex;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--fg-muted);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+  white-space: nowrap;
+}
+#clock-tz-abbr:empty { display: none; }
+#clock-tz-abbr::after { content: "·"; margin-left: 4px; }
 /* The live clock is the sidebar's headline. Plex Sans' tabular figures keep
    the digits from shuffling every second; the mono stack is only a fallback
    for the (local) font failing to load. */
